@@ -1,0 +1,108 @@
+/* Overlay */
+[cmdk-overlay] {
+    position: fixed;
+    inset: 0;
+    z-index: 9999;
+    background-color: rgba(0, 0, 0, 0.4);
+    backdrop-filter: blur(2px);
+}
+
+/* Dialog Content */
+[cmdk-dialog] {
+    position: fixed;
+    /* Center the dialog */
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    z-index: 10000;
+    
+    background-color: var(--color-panel);
+    border: 1px solid var(--color-panel-border);
+    border-radius: 1rem;
+    box-shadow: 0 20px 25px -5px rgb(0 0 0 / 0.1), 0 8px 10px -6px rgb(0 0 0 / 0.1);
+    
+    width: 640px;
+    max-width: 90vw;
+    /* max-height handled by list logic or internal sizing */
+    overflow: hidden;
+    display: flex;
+    flex-direction: column;
+    font-family: inherit;
+}
+
+/* Input */
+[cmdk-input] {
+    background: transparent;
+    border: none;
+    padding: 1rem;
+    font-size: 1rem;
+    color: inherit;
+    outline: none;
+    width: 100%;
+    border-bottom: 1px solid var(--color-panel-border);
+}
+
+/* List Container */
+[cmdk-list] {
+    min-height: 100px;
+    max-height: 300px;
+    overflow: auto;
+    overscroll-behavior: contain;
+    transition: 100ms ease;
+    padding: 0.5rem;
+}
+
+/* Group Heading */
+[cmdk-group-heading] {
+    user-select: none;
+    font-size: 0.75rem;
+    color: currentColor; 
+    opacity: 0.5;
+    padding: 0.5rem 0.5rem 0.25rem;
+    font-weight: 500;
+}
+
+/* Empty State */
+[cmdk-empty] {
+    font-size: 0.875rem;
+    padding: 2rem;
+    text-align: center;
+    color: currentColor;
+    opacity: 0.7;
+}
+
+/* Items */
+[cmdk-item] {
+    content-visibility: auto;
+    cursor: default;
+    border-radius: 0.5rem;
+    padding: 0.75rem 0.5rem;
+    color: inherit;
+    font-size: 0.875rem;
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    transition: background-color 0.1s ease;
+    user-select: none;
+    background: transparent;
+}
+
+/* Selected State */
+[cmdk-item][data-selected="true"],
+[cmdk-item][aria-selected="true"] {
+    background-color: var(--color-panel-2);
+    color: inherit;
+}
+
+/* Disabled state */
+[cmdk-item][data-disabled="true"] {
+    opacity: 0.5;
+    cursor: not-allowed;
+}
+
+/* Icons */
+[cmdk-item] svg {
+    width: 1rem;
+    height: 1rem;
+    opacity: 0.7;
+}

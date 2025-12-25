@@ -1,0 +1,31 @@
+import { createRootRoute, Outlet } from "@tanstack/react-router";
+import CommandPalette from "@/components/ui/CommandPalette.tsx";
+import { RightSidebar } from "./main_view.tsx";
+import { Sidebar as LeftSidebar } from "@/components/sidebar/Sidebar.tsx";
+import { PromptManagerProvider } from "@/contexts/PromptManagerContext.tsx";
+import React from "react";
+
+export const Route = createRootRoute({
+  component: RootComponent,
+});
+
+function RootComponent() {
+  return (
+    <React.Fragment>
+      <PromptManagerProvider>
+        {/* <ConversationProvider> */}
+        {/* <LayoutProvider> */}
+        {/* <MainControls /> */}
+        <CommandPalette />
+
+        <div className="flex h-screen flex-row">
+          <LeftSidebar />
+          <Outlet />
+          <RightSidebar />
+        </div>
+        {/* </LayoutProvider> */}
+        {/* </ConversationProvider> */}
+      </PromptManagerProvider>
+    </React.Fragment>
+  );
+}

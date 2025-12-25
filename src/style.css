@@ -1,0 +1,43 @@
+@import "tailwindcss";
+
+@custom-variant dark (&:where(.dark, .dark *));
+
+@theme {
+  --color-panel: oklch(96.416% 0.00011 271.152);
+  --color-panel-border: oklch(70.251% 0.00008 271.152);
+  --color-panel-2: oklch(94.007% 0.00011 271.152);
+  --color-main-background: oklch(92.191% 0.0001 271.152);
+  --color-placeholder: oklch(55% 0 0);
+}
+
+:root, :host {
+  @variant dark {
+    --color-panel: oklch(28.094% 0.00003 271.152);
+    --color-panel-border: oklch(42.024% 0.00005 271.152);
+    --color-panel-2: oklch(32.109% 0.00004 271.152);
+    --color-main-background: oklch(16.842% 0.00002 271.152);
+    --color-placeholder: oklch(70% 0 0);
+  }
+
+  overscroll-behavior: none;
+}
+
+/* Custom scrollbar for webkit */
+::-webkit-scrollbar {
+  width: 6px;
+}
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+::-webkit-scrollbar-thumb {
+  background-color: #9a9a9a;
+  border-radius: 20px;
+}
+::-webkit-scrollbar-thumb:hover {
+  background-color: #6b6b6b;
+}
+
+.chat-textarea::placeholder {
+  color: var(--color-placeholder);
+  opacity: 1; /* Reset opacity for Firefox */
+}
