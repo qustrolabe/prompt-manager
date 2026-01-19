@@ -15,8 +15,10 @@
         "title": "prompt-manager",
         "width": 800,
         "height": 600,
-        "maximized": true,
-        "decorations": true
+        "decorations": false,
+        "resizable": true,
+        "transparent": true,
+        "maximized": true
       }
     ],
     "security": {

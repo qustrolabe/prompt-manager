@@ -9,7 +9,7 @@ edition = "2021"
 
 [profile.dev]
 debug = 0 # speed up build
-incremental = false
+incremental = true
 
 [lib]
 # The `_lib` suffix may seem redundant but it is necessary
