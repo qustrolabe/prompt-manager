@@ -1,14 +1,11 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { useCallback, useEffect, useState } from "react";
 import {
-  clearTable,
-  exportDatabaseAsJson,
-  getDatabasePath,
-  getTableInfo,
-  getTableNames,
-  getTableRows,
+  commands,
+  type DbError,
   type TableColumn,
-} from "@/db/client.ts";
+  type TableRow,
+} from "@/bindings";
 
 export const Route = createFileRoute("/debug")({
   component: DebugPage,
@@ -22,37 +19,70 @@ interface TableInfo {
 function DebugPage() {
   const [tables, setTables] = useState<TableInfo[]>([]);
   const [selectedTable, setSelectedTable] = useState<string | null>(null);
-  const [tableData, setTableData] = useState<Record<string, unknown>[]>([]);
+  const [tableData, setTableData] = useState<TableRow[]>([]);
   const [tableColumns, setTableColumns] = useState<TableColumn[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [dbPath] = useState(() => getDatabasePath());
+  const [dbPath, setDbPath] = useState<string>("");
 
   const loadTables = useCallback(async () => {
     setLoading(true);
     setError(null);
     try {
-      const tableNames = await getTableNames();
+      const result = await commands.getTableNames();
+      if (result.status === "error") {
+        throw new Error(
+          getDbErrorMessage(result.error) || "Failed to load tables",
+        );
+      }
+      const tableNames = result.data;
+
       // Get row counts for each table
       const tablesWithCounts = await Promise.all(
         tableNames.map(async (name) => {
-          const rows = await getTableRows(name);
+          const rowsResult = await commands.getTableRows(name);
+          if (rowsResult.status === "error") {
+            throw new Error(
+              getDbErrorMessage(rowsResult.error) ||
+                "Failed to load table rows",
+            );
+          }
+          const rows = rowsResult.data;
           return { name, rowCount: rows.length };
         }),
       );
       setTables(tablesWithCounts);
+
+      // Load database path
+      const pathResult = await commands.getDatabasePath();
+      if (pathResult.status === "ok") {
+        setDbPath(pathResult.data);
+      }
 
       // Select first table if none selected
       if (!selectedTable && tablesWithCounts.length > 0) {
         setSelectedTable(tablesWithCounts[0].name);
       } else if (selectedTable) {
         // Refresh data for currently selected table
-        const [rows, columns] = await Promise.all([
-          getTableRows(selectedTable),
-          getTableInfo(selectedTable),
+        const [rowsResult, columnsResult] = await Promise.all([
+          commands.getTableRows(selectedTable),
+          commands.getTableInfo(selectedTable),
         ]);
-        setTableData(rows);
-        setTableColumns(columns);
+
+        if (rowsResult.status === "error") {
+          throw new Error(
+            getDbErrorMessage(rowsResult.error) || "Failed to load table rows",
+          );
+        }
+        if (columnsResult.status === "error") {
+          throw new Error(
+            getDbErrorMessage(columnsResult.error) ||
+              "Failed to load table info",
+          );
+        }
+
+        setTableData(rowsResult.data);
+        setTableColumns(columnsResult.data);
       }
     } catch (e) {
       setError(e instanceof Error ? e.message : "Failed to load tables");
@@ -65,12 +95,24 @@ function DebugPage() {
     setLoading(true);
     setError(null);
     try {
-      const [rows, columns] = await Promise.all([
-        getTableRows(tableName),
-        getTableInfo(tableName),
+      const [rowsResult, columnsResult] = await Promise.all([
+        commands.getTableRows(tableName),
+        commands.getTableInfo(tableName),
       ]);
-      setTableData(rows);
-      setTableColumns(columns);
+
+      if (rowsResult.status === "error") {
+        throw new Error(
+          getDbErrorMessage(rowsResult.error) || "Failed to load table rows",
+        );
+      }
+      if (columnsResult.status === "error") {
+        throw new Error(
+          getDbErrorMessage(columnsResult.error) || "Failed to load table info",
+        );
+      }
+
+      setTableData(rowsResult.data);
+      setTableColumns(columnsResult.data);
     } catch (e) {
       setError(e instanceof Error ? e.message : "Failed to load table data");
     } finally {
@@ -87,6 +129,14 @@ function DebugPage() {
       loadTableData(selectedTable);
     }
   }, [selectedTable, loadTableData]);
+
+  useEffect(() => {
+    commands.getDatabasePath().then((result) => {
+      if (result.status === "ok") {
+        setDbPath(result.data);
+      }
+    });
+  }, []);
 
   const handleTabClick = (tableName: string) => {
     setSelectedTable(tableName);
@@ -106,7 +156,12 @@ function DebugPage() {
     setLoading(true);
     setError(null);
     try {
-      await clearTable(selectedTable);
+      const result = await commands.clearTable(selectedTable);
+      if (result.status === "error") {
+        throw new Error(
+          getDbErrorMessage(result.error) || "Failed to clear table",
+        );
+      }
       await loadTableData(selectedTable);
       // Refresh table counts
       await loadTables();
@@ -121,7 +176,13 @@ function DebugPage() {
     setLoading(true);
     setError(null);
     try {
-      const data = await exportDatabaseAsJson();
+      const result = await commands.exportDatabaseAsJson();
+      if (result.status === "error") {
+        throw new Error(
+          getDbErrorMessage(result.error) || "Failed to export database",
+        );
+      }
+      const data = result.data;
       const blob = new Blob([JSON.stringify(data, null, 2)], {
         type: "application/json",
       });
@@ -304,4 +365,11 @@ function formatCellValue(value: unknown): string {
     return value.slice(0, 50) + "...";
   }
   return String(value);
+}
+
+function getDbErrorMessage(error: DbError): string {
+  if ("Database" in error) return error.Database;
+  if ("NotFound" in error) return error.NotFound;
+  if ("Serialization" in error) return error.Serialization;
+  return "Unknown error";
 }

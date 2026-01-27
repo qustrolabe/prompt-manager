@@ -97,12 +97,12 @@ function MainViewComponent() {
                 onChange={(e) => setTitleInput(e.target.value)}
                 onBlur={handleTitleBlur}
                 onKeyDown={handleTitleKeyDown}
-                className="text-lg font-semibold text-neutral-900 bg-transparent border-b border-blue-500 focus:outline-none dark:text-neutral-100"
+                className="border-b border-blue-500 bg-transparent font-semibold text-lg text-neutral-900 focus:outline-none dark:text-neutral-100"
               />
             )
             : (
               <h1
-                className={`text-lg font-semibold text-neutral-900 dark:text-neutral-100 ${
+                className={`font-semibold text-lg text-neutral-900 dark:text-neutral-100 ${
                   activeView
                     ? "cursor-pointer hover:underline decoration-dotted"
                     : ""
@@ -198,8 +198,8 @@ function MainViewComponent() {
 // But RightSidebar is still used.
 export function RightSidebar() {
   return (
-    <div className="w-64 shrink-0 border-l border-panel-border bg-panel p-2 hidden lg:block">
-      <div className="text-xs text-neutral-500">
+    <div className="hidden w-64 shrink-0 border-l border-panel-border bg-panel p-2 lg:block">
+      <div className="text-neutral-500 text-xs">
         Right Sidebar (Placeholder)
       </div>
     </div>

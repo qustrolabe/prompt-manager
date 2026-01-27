@@ -7,8 +7,7 @@
     "dev": "vite",
     "build": "tsc && vite build",
     "preview": "vite preview",
-    "tauri": "tauri",
-    "drizzle:generate": "drizzle-kit generate"
+    "tauri": "tauri"
   },
   "dependencies": {
     "@tailwindcss/vite": "^4.1.18",
@@ -17,11 +16,9 @@
     "@tauri-apps/plugin-dialog": "~2.6.0",
     "@tauri-apps/plugin-fs": "~2.4.5",
     "@tauri-apps/plugin-http": "~2.5.6",
-    "@tauri-apps/plugin-sql": "~2.3.1",
     "@types/d3": "^7.4.3",
     "cmdk": "^1.1.1",
     "d3": "^7.9.0",
-    "drizzle-orm": "^0.45.1",
     "radix-ui": "^1.4.3",
     "react": "^19.2.3",
     "react-dom": "^19.2.3",
@@ -39,7 +36,6 @@
     "@types/react-dom": "^19.2.3",
     "@vitejs/plugin-react": "^5.1.2",
     "baseline-browser-mapping": "^2.9.15",
-    "drizzle-kit": "^0.31.8",
     "typescript": "~5.9.3",
     "vite": "^7.3.1",
     "@tauri-apps/cli": "^2.9.6"

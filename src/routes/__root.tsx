@@ -14,9 +14,6 @@ function RootComponent() {
   return (
     <React.Fragment>
       <PromptManagerProvider>
-        {/* <ConversationProvider> */}
-        {/* <LayoutProvider> */}
-        {/* <MainControls /> */}
         <CommandPalette />
 
         <TitleBar />
@@ -26,8 +23,6 @@ function RootComponent() {
           <Outlet />
           <RightSidebar />
         </div>
-        {/* </LayoutProvider> */}
-        {/* </ConversationProvider> */}
       </PromptManagerProvider>
     </React.Fragment>
   );

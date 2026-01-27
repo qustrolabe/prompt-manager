@@ -17,8 +17,9 @@
         "height": 600,
         "decorations": false,
         "resizable": true,
-        "transparent": true,
-        "maximized": true
+        "transparent": false,
+        "maximized": true,
+        "backgroundColor": "#292929"
       }
     ],
     "security": {
