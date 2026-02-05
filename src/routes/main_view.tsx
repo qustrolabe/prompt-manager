@@ -1,38 +1,34 @@
+import { KeyboardEvent, useRef } from "react";
 import { createFileRoute, useSearch } from "@tanstack/react-router";
 import { usePromptManager } from "@/contexts/PromptManagerContext.tsx";
-import { Prompt, Snippet } from "@/schemas/schemas.ts";
+import { Prompt } from "@/schemas/schemas.ts";
 import { ViewControls } from "@/components/ui/ViewControls.tsx";
 import { PromptEditOverlay } from "@/components/prompts/PromptEditOverlay.tsx";
-import { SnippetEditOverlay } from "@/components/snippets/SnippetEditOverlay.tsx";
 import { usePromptFiltering } from "@/hooks/usePromptFiltering.ts";
 import { useViewManagement } from "@/hooks/useViewManagement.ts";
 import { useOverlayState } from "@/hooks/useOverlayState.ts";
 import { PromptList } from "@/components/prompts/PromptList.tsx";
-import { SnippetList } from "@/components/snippets/SnippetList.tsx";
+import { useToast } from "@/components/ui/ToastProvider.tsx";
 
 // Define search params schema
 interface MainViewSearch {
   viewId?: string;
-  tab?: "snippets";
 }
 
 export const Route = createFileRoute("/main_view")({
   validateSearch: (search: Record<string, unknown>): MainViewSearch => {
     return {
       viewId: typeof search.viewId === "string" ? search.viewId : undefined,
-      tab: search.tab === "snippets" ? "snippets" : undefined,
     };
   },
   component: MainViewComponent,
 });
 
 function MainViewComponent() {
-  const { viewId, tab } = useSearch({ from: "/main_view" });
-  const isSnippetsTab = tab === "snippets";
+  const { viewId } = useSearch({ from: "/main_view" });
 
   const {
     prompts,
-    snippets,
     views,
     allTags,
     updateView,
@@ -40,10 +36,9 @@ function MainViewComponent() {
     updatePrompt,
     removePrompt,
     duplicatePrompt,
-    addSnippet,
-    updateSnippet,
-    removeSnippet,
+    config,
   } = usePromptManager();
+  const { pushToast } = useToast();
 
   // View Management Hook
   const {
@@ -57,31 +52,35 @@ function MainViewComponent() {
     setTitleInput,
     handleTitleBlur,
     startEditingTitle,
-  } = useViewManagement({ viewId, views, updateView, isSnippetsTab });
+  } = useViewManagement({ viewId, views, updateView });
 
   // Prompt Filtering Hook
   const filteredPrompts = usePromptFiltering(prompts, currentConfig);
 
   // Overlay State Hooks
   const promptOverlay = useOverlayState<Prompt>();
-  const snippetOverlay = useOverlayState<Snippet>();
 
   // Handlers for Save/Delete/Duplicate
   const handlePromptSave = async (p: Prompt) => {
-    if (promptOverlay.isNew) await addPrompt(p);
-    else await updatePrompt(p);
-    promptOverlay.close();
+    try {
+      if (promptOverlay.isNew) await addPrompt(p);
+      else await updatePrompt(p);
+      promptOverlay.close();
+    } catch (error) {
+      console.error("Failed to save prompt", error);
+      pushToast({
+        title: "Failed to save prompt",
+        description: error instanceof Error ? error.message : String(error),
+        variant: "error",
+      });
+    }
   };
 
-  const handleSnippetSave = async (s: Snippet) => {
-    if (snippetOverlay.isNew) await addSnippet(s);
-    else await updateSnippet(s);
-    snippetOverlay.close();
-  };
-
-  const handleTitleKeyDown = (e: React.KeyboardEvent) => {
+  const handleTitleKeyDown = (e: KeyboardEvent) => {
     if (e.key === "Enter") handleTitleBlur();
   };
+
+  const parentRef = useRef<HTMLDivElement>(null);
 
   return (
     <div className="flex h-full flex-1 flex-col overflow-hidden bg-main-background">
@@ -115,44 +114,38 @@ function MainViewComponent() {
         </div>
       </div>
 
-      {!isSnippetsTab && (
-        <ViewControls
-          config={currentConfig}
-          onChange={handleConfigChange}
-          allTags={allTags}
-        />
-      )}
+      <ViewControls
+        config={currentConfig}
+        onChange={handleConfigChange}
+        allTags={allTags}
+      />
 
       {/* Main Content List */}
-      <div className="flex-1 overflow-y-auto p-4">
-        <div className="mx-auto max-w-4xl space-y-4">
+      <div ref={parentRef} className="flex-1 overflow-y-auto p-4">
+        <div className="mx-auto max-w-4xl">
           {/* Create Actions */}
           <div className="mb-4 flex justify-end">
             <button
               type="button"
-              onClick={() =>
-                isSnippetsTab
-                  ? snippetOverlay.openNew()
-                  : promptOverlay.openNew()}
+              onClick={() => promptOverlay.openNew()}
               className="rounded-md bg-neutral-900 px-4 py-2 font-medium text-sm text-white hover:bg-neutral-800 dark:bg-neutral-100 dark:text-black dark:hover:bg-neutral-200"
             >
-              {isSnippetsTab ? "+ New Snippet" : "+ New Prompt"}
+              + New Prompt
             </button>
           </div>
 
-          {isSnippetsTab
-            ? (
-              <SnippetList
-                snippets={snippets}
-                onEdit={snippetOverlay.openEdit}
-              />
-            )
-            : (
-              <PromptList
-                prompts={filteredPrompts}
-                onEdit={promptOverlay.openEdit}
-              />
-            )}
+          <PromptList
+            prompts={filteredPrompts}
+            parentRef={parentRef}
+            onEdit={promptOverlay.openEdit}
+            onDelete={async (prompt) => {
+              await removePrompt(prompt.id);
+            }}
+            showTitles={config?.view?.showPromptTitles ?? true}
+            showFullPrompt={config?.view?.showFullPrompt ?? false}
+            showTags={config?.view?.showPromptTags ?? true}
+            showCreatedDate={config?.view?.showCreatedDate ?? true}
+          />
         </div>
       </div>
 
@@ -175,33 +168,6 @@ function MainViewComponent() {
           onClose={promptOverlay.close}
         />
       )}
-
-      {(snippetOverlay.editingItem || snippetOverlay.isNew) && (
-        <SnippetEditOverlay
-          snippet={snippetOverlay.editingItem}
-          isNew={snippetOverlay.isNew}
-          allTags={allTags}
-          onSave={handleSnippetSave}
-          onDelete={async (id) => {
-            await removeSnippet(id);
-            snippetOverlay.close();
-          }}
-          onClose={snippetOverlay.close}
-        />
-      )}
-    </div>
-  );
-}
-
-// Deprecated export but kept to avoid breaking __root until updated if needed,
-// though we updated __root to point to Sidebar.tsx, so this might be dead code soon.
-// But RightSidebar is still used.
-export function RightSidebar() {
-  return (
-    <div className="hidden w-64 shrink-0 border-l border-panel-border bg-panel p-2 lg:block">
-      <div className="text-neutral-500 text-xs">
-        Right Sidebar (Placeholder)
-      </div>
     </div>
   );
 }

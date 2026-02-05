@@ -1,36 +1,16 @@
 import { z } from "zod";
 
-export const PromptModeSchema = z.enum(['raw', 'template']);
-export type PromptMode = z.infer<typeof PromptModeSchema>;
-
 export const PromptSchema = z.object({
-  id: z.uuid(),
-  createdAt: z.date().nullable(),
-  title: z.string().nullable(),           // Optional title
-  text: z.string(),                        // The prompt content
-  description: z.string().nullable(),      // Optional description
-  tags: z.array(z.string()),               // Tags for categorization
-  mode: PromptModeSchema,                  // Raw text or template with {{keywords}}
-
-  // Template field values - stores the current input values for {{keywords}}
-  templateValues: z.record(z.string(), z.string()).optional(),
-
-  // Future: for linking generated images to prompts
-  // generatedImagesIds: z.array(UUID),
-  // inputImages: z.array(z.url()),
+  id: z.string(),
+  created: z.string().nullable(),
+  text: z.string(),
+  tags: z.array(z.string()),
+  filePath: z.string().nullable().optional(),
+  previousFilePath: z.string().nullable().optional(),
+  title: z.string().nullable().optional(),
 });
 
 export type Prompt = z.infer<typeof PromptSchema>;
-
-export const SnippetSchema = z.object({
-  id: z.uuid(),
-  createdAt: z.date().nullable(),
-  value: z.string(),                       // The snippet text/word
-  description: z.string().nullable(),      // Description of the snippet
-  tags: z.array(z.string()),               // Tags (shared pool with prompts)
-});
-
-export type Snippet = z.infer<typeof SnippetSchema>;
 
 export const ViewConfigSchema = z.object({
   filter: z.object({
@@ -39,7 +19,7 @@ export const ViewConfigSchema = z.object({
     favorite: z.boolean().optional(),
   }).optional(),
   sort: z.object({
-    by: z.enum(["created_at", "title", "usage_count"]),
+    by: z.enum(["created"]),
     order: z.enum(["asc", "desc"]),
   }).optional(),
 });
@@ -51,7 +31,31 @@ export const ViewSchema = z.object({
   name: z.string(),
   type: z.enum(["system", "custom"]),
   config: ViewConfigSchema,
-  createdAt: z.date(),
+  created: z.string(),
 });
 
 export type View = z.infer<typeof ViewSchema>;
+
+export const AppConfigSchema = z.object({
+  vaultPath: z.string().nullable(),
+  theme: z.string(),
+  view: z.object({
+    showPromptTitles: z.boolean(),
+    showFullPrompt: z.boolean(),
+    showPromptTags: z.boolean(),
+    showCreatedDate: z.boolean(),
+  }),
+});
+
+export type AppConfig = z.infer<typeof AppConfigSchema>;
+
+export const PromptFileSchema = z.object({
+  id: z.string(),
+  filePath: z.string(),
+  tags: z.array(z.string()),
+  created: z.string().nullable(),
+  content: z.string(),
+  fileHash: z.string().nullable().optional(),
+});
+
+export type PromptFile = z.infer<typeof PromptFileSchema>;

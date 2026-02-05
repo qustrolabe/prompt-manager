@@ -23,7 +23,7 @@ export function ViewControls({ config, onChange, allTags }: ViewControlsProps) {
     });
   };
 
-  const handleSortChange = (by: "created_at" | "title" | "usage_count") => {
+  const handleSortChange = (by: "created") => {
     // Toggle order if clicking same sort field
     const currentOrder = config.sort?.order || "desc";
     // Safe check for config.sort
@@ -53,30 +53,16 @@ export function ViewControls({ config, onChange, allTags }: ViewControlsProps) {
         {/* Sort Controls */}
         <div className="flex gap-1 rounded-md border border-panel-border bg-panel p-1 dark:bg-neutral-800">
           <button
-            onClick={() => handleSortChange("created_at")}
+            onClick={() => handleSortChange("created")}
             className={`flex items-center gap-1 rounded px-2 py-1 text-xs font-medium transition-colors ${
-              config.sort?.by === "created_at"
+              config.sort?.by === "created"
                 ? "bg-blue-100 text-blue-700 dark:bg-blue-900/40 dark:text-blue-300"
                 : "text-neutral-500 hover:bg-neutral-100 dark:hover:bg-neutral-700"
             }`}
             title="Sort by Date"
           >
             Date
-            {config.sort?.by === "created_at" && (
-              config.sort.order === "asc" ? <FiArrowUp /> : <FiArrowDown />
-            )}
-          </button>
-          <button
-            onClick={() => handleSortChange("title")}
-            className={`flex items-center gap-1 rounded px-2 py-1 text-xs font-medium transition-colors ${
-              config.sort?.by === "title"
-                ? "bg-blue-100 text-blue-700 dark:bg-blue-900/40 dark:text-blue-300"
-                : "text-neutral-500 hover:bg-neutral-100 dark:hover:bg-neutral-700"
-            }`}
-            title="Sort by Title"
-          >
-            Title
-            {config.sort?.by === "title" && (
+            {config.sort?.by === "created" && (
               config.sort.order === "asc" ? <FiArrowUp /> : <FiArrowDown />
             )}
           </button>

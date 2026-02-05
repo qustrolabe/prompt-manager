@@ -12,11 +12,7 @@ export function usePromptFiltering(
     if (filter) {
       if (filter.search) {
         const lower = filter.search.toLowerCase();
-        result = result.filter((p) =>
-          p.text.toLowerCase().includes(lower) ||
-          p.title?.toLowerCase().includes(lower) ||
-          p.description?.toLowerCase().includes(lower)
-        );
+        result = result.filter((p) => p.text.toLowerCase().includes(lower));
       }
       if (filter.tags && filter.tags.length > 0) {
         const positiveTags = filter.tags.filter((t) => !t.startsWith("-"));
@@ -34,15 +30,12 @@ export function usePromptFiltering(
 
     if (sort) {
       result.sort((a, b) => {
-        let valA: string | number = "";
-        let valB: string | number = "";
+        let valA: string = "";
+        let valB: string = "";
 
-        if (sort.by === "created_at") {
-          valA = a.createdAt ? new Date(a.createdAt).getTime() : 0;
-          valB = b.createdAt ? new Date(b.createdAt).getTime() : 0;
-        } else if (sort.by === "title") {
-          valA = a.title || "";
-          valB = b.title || "";
+        if (sort.by === "created") {
+          valA = a.created || "";
+          valB = b.created || "";
         }
 
         if (valA < valB) return sort.order === "asc" ? -1 : 1;

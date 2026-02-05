@@ -7,24 +7,15 @@ use std::collections::HashMap;
 // DATABASE ROW TYPES (for SQLx FromRow)
 // ============================================================================
 
-/// Prompt row from database
+/// Prompt row from database (cache)
 #[derive(Debug, Clone, FromRow)]
 pub struct PromptRow {
     pub id: String,
-    pub created_at: Option<i64>,
-    pub title: Option<String>,
+    pub created: Option<String>,
     pub text: String,
-    pub description: Option<String>,
-    pub mode: String,
-}
-
-/// Snippet row from database
-#[derive(Debug, Clone, FromRow)]
-pub struct SnippetRow {
-    pub id: String,
-    pub created_at: Option<i64>,
-    pub value: String,
-    pub description: Option<String>,
+    pub title: Option<String>,
+    pub file_path: Option<String>,
+    pub file_hash: Option<String>,
 }
 
 /// Tag row from database
@@ -42,14 +33,7 @@ pub struct ViewRow {
     #[sqlx(rename = "type")]
     pub view_type: String,
     pub config: String, // JSON string
-    pub created_at: i64,
-}
-
-/// Template value row
-#[derive(Debug, Clone, FromRow)]
-pub struct TemplateValueRow {
-    pub keyword: String,
-    pub value: String,
+    pub created: String,
 }
 
 /// Tag name row (for simple queries)
@@ -62,56 +46,29 @@ pub struct TagNameRow {
 // API TYPES (for Tauri commands with Specta)
 // ============================================================================
 
-/// Prompt with tags and template values - returned to frontend
+/// Prompt with tags - returned to frontend (legacy, for cache-based queries)
 #[derive(Debug, Clone, Serialize, Deserialize, Type)]
 #[serde(rename_all = "camelCase")]
 pub struct Prompt {
     pub id: String,
-    pub created_at: Option<i64>,
-    pub title: Option<String>,
+    pub created: Option<String>,
     pub text: String,
-    pub description: Option<String>,
-    pub mode: String,
     pub tags: Vec<String>,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub template_values: Option<HashMap<String, String>>,
+    pub file_path: Option<String>,
+    pub title: Option<String>,
 }
 
-/// Input for saving a prompt
+/// Input for saving a prompt (legacy, for cache-based operations)
 #[derive(Debug, Clone, Serialize, Deserialize, Type)]
 #[serde(rename_all = "camelCase")]
 pub struct PromptInput {
     pub id: String,
-    pub created_at: Option<i64>,
-    pub title: Option<String>,
+    pub created: Option<String>,
     pub text: String,
-    pub description: Option<String>,
-    pub mode: String,
     pub tags: Vec<String>,
-    #[serde(default)]
-    pub template_values: Option<HashMap<String, String>>,
-}
-
-/// Snippet with tags - returned to frontend
-#[derive(Debug, Clone, Serialize, Deserialize, Type)]
-#[serde(rename_all = "camelCase")]
-pub struct Snippet {
-    pub id: String,
-    pub created_at: Option<i64>,
-    pub value: String,
-    pub description: Option<String>,
-    pub tags: Vec<String>,
-}
-
-/// Input for saving a snippet
-#[derive(Debug, Clone, Serialize, Deserialize, Type)]
-#[serde(rename_all = "camelCase")]
-pub struct SnippetInput {
-    pub id: String,
-    pub created_at: Option<i64>,
-    pub value: String,
-    pub description: Option<String>,
-    pub tags: Vec<String>,
+    pub file_path: Option<String>,
+    pub previous_file_path: Option<String>,
+    pub title: Option<String>,
 }
 
 /// View configuration for filtering and sorting
@@ -138,7 +95,7 @@ pub struct FilterConfig {
 #[derive(Debug, Clone, Serialize, Deserialize, Type)]
 #[serde(rename_all = "camelCase")]
 pub struct SortConfig {
-    pub by: String,    // "created_at" | "title" | "usage_count"
+    pub by: String,    // "created" | "title" | "usage_count"
     pub order: String, // "asc" | "desc"
 }
 
@@ -151,7 +108,7 @@ pub struct View {
     #[serde(rename = "type")]
     pub view_type: String, // "system" | "custom"
     pub config: ViewConfig,
-    pub created_at: i64,
+    pub created: String,
 }
 
 /// Input for saving a view
@@ -163,7 +120,7 @@ pub struct ViewInput {
     #[serde(rename = "type")]
     pub view_type: String,
     pub config: ViewConfig,
-    pub created_at: i64,
+    pub created: String,
 }
 
 // ============================================================================

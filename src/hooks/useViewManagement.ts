@@ -6,19 +6,17 @@ interface UseViewManagementProps {
   viewId?: string;
   views: View[];
   updateView: (view: View) => Promise<void>;
-  isSnippetsTab: boolean;
 }
 
 export function useViewManagement({
   viewId,
   views,
   updateView,
-  isSnippetsTab,
 }: UseViewManagementProps) {
   // Local state for system view config (ephemeral)
   const [systemConfig, setSystemConfig] = useState<ViewConfig>({
     filter: {},
-    sort: { by: "created_at", order: "desc" },
+    sort: { by: "created", order: "desc" },
   });
 
   // Title Editing State
@@ -58,7 +56,6 @@ export function useViewManagement({
   };
 
   const getDisplayTitle = () => {
-    if (isSnippetsTab) return "Snippets";
     if (activeView) {
       if (activeView.name && activeView.name.trim() !== "") {
         return activeView.name;

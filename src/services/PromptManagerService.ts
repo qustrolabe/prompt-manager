@@ -3,16 +3,17 @@
  */
 
 import {
+  AppConfig as RsAppConfig,
   commands,
   Prompt as RsPrompt,
+  PromptFile as RsPromptFile,
   PromptInput as RsPromptInput,
-  Snippet as RsSnippet,
-  SnippetInput as RsSnippetInput,
+  SyncStats,
   View as RsView,
   ViewConfig as RsViewConfig,
   ViewInput as RsViewInput,
-} from "@/bindings";
-import { Prompt, Snippet, View, ViewConfig } from "@/schemas/schemas";
+} from "@/bindings.ts";
+import { AppConfig, Prompt, View, ViewConfig } from "@/schemas/schemas.ts";
 
 // Helper to unwrap Tauri Result
 function unwrap<T>(
@@ -27,18 +28,13 @@ function unwrap<T>(
 
 class TauriPromptManagerService {
   // ============================================================
-  // PROMPTS
+  // PROMPTS (Cache based)
   // ============================================================
 
   async getPrompts(options?: {
     filter?: ViewConfig["filter"];
     sort?: ViewConfig["sort"];
   }): Promise<Prompt[]> {
-    // Convert options to Rust compatible format if needed
-    // The bindings expect strict types, and our ViewConfig in schema.ts matches RsViewConfig structure mostly
-    // but optional fields might need ensuring being present or formatted correctly.
-    // Thankfully Specta generates compatible structures.
-
     const res = await commands.getPrompts(
       options?.filter ?? null,
       options?.sort ?? null,
@@ -49,23 +45,14 @@ class TauriPromptManagerService {
   }
 
   async savePrompt(prompt: Prompt): Promise<void> {
-    // Cast templateValues to compatible type for Rust binding
-    // The Rust binding expects Partial<{ [key: string]: string }> which allows undefined values
-    // strict null checks might complain about Record<string, string> not being exactly Partial<...>
-    const templateValues = prompt.templateValues as unknown as
-      | Partial<{ [key in string]: string }>
-      | null
-      | undefined;
-
     const input: RsPromptInput = {
       id: prompt.id,
-      createdAt: prompt.createdAt ? prompt.createdAt.getTime() : null,
-      title: prompt.title,
+      created: prompt.created,
       text: prompt.text,
-      description: prompt.description,
-      mode: prompt.mode,
       tags: prompt.tags,
-      templateValues: templateValues ?? null,
+      filePath: prompt.filePath ?? null,
+      previousFilePath: prompt.previousFilePath ?? null,
+      title: prompt.title ?? null,
     };
 
     const res = await commands.savePrompt(input);
@@ -84,30 +71,60 @@ class TauriPromptManagerService {
   }
 
   // ============================================================
-  // SNIPPETS
+  // VAULT (Direct file operations)
   // ============================================================
 
-  async getSnippets(): Promise<Snippet[]> {
-    const res = await commands.getSnippets();
-    const data = unwrap(res);
-    return data.map(this.mapSnippetFromRust);
+  async scanVault(): Promise<RsPromptFile[]> {
+    const res = await commands.scanVault();
+    return unwrap(res);
   }
 
-  async saveSnippet(snippet: Snippet): Promise<void> {
-    const input: RsSnippetInput = {
-      id: snippet.id,
-      createdAt: snippet.createdAt ? snippet.createdAt.getTime() : null,
-      value: snippet.value,
-      description: snippet.description,
-      tags: snippet.tags,
-    };
+  async readPromptFile(id: string): Promise<RsPromptFile> {
+    const res = await commands.readPromptFile(id);
+    return unwrap(res);
+  }
 
-    const res = await commands.saveSnippet(input);
+  async writePromptFile(promptFile: RsPromptFile): Promise<void> {
+    const res = await commands.writePromptFile(promptFile);
     unwrap(res);
   }
 
-  async deleteSnippet(id: string): Promise<void> {
-    const res = await commands.deleteSnippet(id);
+  async deletePromptFile(id: string): Promise<void> {
+    const res = await commands.deletePromptFile(id);
+    unwrap(res);
+  }
+
+  // ============================================================
+  // CONFIG
+  // ============================================================
+
+  async getConfig(): Promise<AppConfig> {
+    const res = await commands.getConfig();
+    const data = unwrap(res);
+    return {
+      vaultPath: data.vaultPath,
+      theme: data.theme || "dark",
+      view: {
+        showPromptTitles: data.view?.showPromptTitles ?? true,
+        showFullPrompt: data.view?.showFullPrompt ?? false,
+        showPromptTags: data.view?.showPromptTags ?? true,
+        showCreatedDate: data.view?.showCreatedDate ?? true,
+      },
+    };
+  }
+
+  async saveConfig(config: AppConfig): Promise<void> {
+    const input: RsAppConfig = {
+      vaultPath: config.vaultPath,
+      theme: config.theme,
+      view: {
+        showPromptTitles: config.view.showPromptTitles,
+        showFullPrompt: config.view.showFullPrompt,
+        showPromptTags: config.view.showPromptTags,
+        showCreatedDate: config.view.showCreatedDate,
+      },
+    };
+    const res = await commands.saveConfig(input);
     unwrap(res);
   }
 
@@ -126,8 +143,8 @@ class TauriPromptManagerService {
       id: view.id,
       name: view.name,
       type: view.type,
-      config: view.config as RsViewConfig, // Cast assuming structure compatibility
-      createdAt: view.createdAt.getTime(),
+      config: view.config as RsViewConfig,
+      created: view.created,
     };
 
     const res = await commands.saveView(input);
@@ -155,29 +172,31 @@ class TauriPromptManagerService {
   }
 
   // ============================================================
+  // SYNC
+  // ============================================================
+
+  async startVaultWatch(): Promise<void> {
+    const res = await commands.startVaultWatch();
+    unwrap(res);
+  }
+
+  async syncVault(): Promise<SyncStats> {
+    const res = await commands.syncVault();
+    return unwrap(res);
+  }
+
+  // ============================================================
   // HELPERS
   // ============================================================
 
   private mapPromptFromRust(p: RsPrompt): Prompt {
     return {
       id: p.id,
-      createdAt: p.createdAt ? new Date(p.createdAt) : null,
-      title: p.title,
+      created: p.created,
       text: p.text,
-      description: p.description,
-      mode: p.mode as "raw" | "template",
       tags: p.tags,
-      templateValues: (p.templateValues as Record<string, string>) ?? undefined,
-    };
-  }
-
-  private mapSnippetFromRust(s: RsSnippet): Snippet {
-    return {
-      id: s.id,
-      createdAt: s.createdAt ? new Date(s.createdAt) : null,
-      value: s.value,
-      description: s.description,
-      tags: s.tags,
+      filePath: p.filePath,
+      title: p.title ?? null,
     };
   }
 
@@ -187,7 +206,7 @@ class TauriPromptManagerService {
       name: v.name,
       type: v.type as "system" | "custom",
       config: v.config as ViewConfig,
-      createdAt: new Date(v.createdAt),
+      created: v.created,
     };
   }
 }
@@ -201,10 +220,15 @@ export interface IPromptManagerService {
   deletePrompt(id: string): Promise<void>;
   duplicatePrompt(id: string): Promise<Prompt | null>;
 
-  // Snippets
-  getSnippets(): Promise<Snippet[]>;
-  saveSnippet(snippet: Snippet): Promise<void>;
-  deleteSnippet(id: string): Promise<void>;
+  // Vault
+  scanVault(): Promise<RsPromptFile[]>;
+  readPromptFile(id: string): Promise<RsPromptFile>;
+  writePromptFile(promptFile: RsPromptFile): Promise<void>;
+  deletePromptFile(id: string): Promise<void>;
+
+  // Config
+  getConfig(): Promise<AppConfig>;
+  saveConfig(config: AppConfig): Promise<void>;
 
   // Views
   getViews(): Promise<View[]>;
@@ -214,6 +238,10 @@ export interface IPromptManagerService {
 
   // Tags
   getAllTags(): Promise<string[]>;
+
+  // Sync
+  syncVault(): Promise<SyncStats>;
+  startVaultWatch(): Promise<void>;
 }
 
 export const promptManagerService = new TauriPromptManagerService();

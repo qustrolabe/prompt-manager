@@ -1,11 +1,11 @@
 import { useEffect, useMemo, useState } from "react";
-import { Prompt, PromptMode } from "@/schemas/schemas.ts";
-import { parseTemplateKeywords } from "@/utils/templateUtils.ts";
+import { Prompt } from "@/schemas/schemas.ts";
 
 interface UsePromptEditFormProps {
   prompt: Prompt | null;
   initialTags?: string[];
   isNew: boolean;
+  initialFilePath?: string;
 }
 
 function areArraysEqual(a: string[], b: string[]) {
@@ -14,102 +14,67 @@ function areArraysEqual(a: string[], b: string[]) {
   return b.every((item) => setA.has(item));
 }
 
-function areObjectsEqual(a: Record<string, string>, b: Record<string, string>) {
-  const keysA = Object.keys(a);
-  const keysB = Object.keys(b);
-  if (keysA.length !== keysB.length) return false;
-  return keysA.every((key) => a[key] === b[key]);
-}
-
 export function usePromptEditForm(
-  { prompt, initialTags = [], isNew }: UsePromptEditFormProps,
+  { prompt, initialTags = [], isNew, initialFilePath = "" }:
+    UsePromptEditFormProps,
 ) {
-  const [title, setTitle] = useState(prompt?.title || "");
   const [text, setText] = useState(prompt?.text || "");
-  const [description, setDescription] = useState(prompt?.description || "");
   const [tags, setTags] = useState<string[]>(prompt?.tags || []);
-  const [mode, setMode] = useState<PromptMode>(prompt?.mode || "raw");
-  const [templateValues, setTemplateValues] = useState<Record<string, string>>(
-    prompt?.templateValues || {},
+  const [filePath, setFilePath] = useState(
+    prompt?.filePath || initialFilePath,
   );
-
-  // Parse keywords from text when in template mode
-  const keywords = useMemo(() => {
-    return mode === "template" ? parseTemplateKeywords(text) : [];
-  }, [text, mode]);
+  const [title, setTitle] = useState<string>(prompt?.title || "");
 
   // Reset form when prompt changes
   useEffect(() => {
     if (prompt) {
-      setTitle(prompt.title || "");
       setText(prompt.text || "");
-      setDescription(prompt.description || "");
       setTags(prompt.tags);
-      setMode(prompt.mode);
-      setTemplateValues(prompt.templateValues || {});
+      setFilePath(prompt.filePath || prompt.id || "");
+      setTitle(prompt.title || "");
     } else {
-      setTitle("");
       setText("");
-      setDescription("");
       setTags(initialTags || []);
-      setMode("raw");
-      setTemplateValues({});
+      setFilePath(initialFilePath);
+      setTitle("");
     }
-  }, [prompt?.id, isNew]);
+  }, [prompt?.id, isNew, initialFilePath]);
 
   const isModified = useMemo(() => {
     if (prompt) {
       return (
-        title !== (prompt.title || "") ||
         text !== prompt.text ||
-        description !== (prompt.description || "") ||
-        mode !== prompt.mode ||
         !areArraysEqual(tags, prompt.tags) ||
-        !areObjectsEqual(templateValues, prompt.templateValues || {})
+        (filePath || "") !== (prompt.filePath || "") ||
+        (title || "") !== (prompt.title || "")
       );
     } else {
       return (
-        title !== "" ||
         text !== "" ||
-        description !== "" ||
-        mode !== "raw" ||
         !areArraysEqual(tags, initialTags) ||
-        Object.keys(templateValues).length > 0
+        (filePath || "") !== (initialFilePath || "") ||
+        title !== ""
       );
     }
   }, [
     prompt,
-    title,
     text,
-    description,
     tags,
-    mode,
-    templateValues,
     initialTags,
+    filePath,
+    initialFilePath,
+    title,
   ]);
 
-  const handleKeywordChange = (keyword: string, value: string) => {
-    setTemplateValues((prev) => ({
-      ...prev,
-      [keyword]: value,
-    }));
-  };
-
   return {
-    title,
-    setTitle,
     text,
     setText,
-    description,
-    setDescription,
     tags,
     setTags,
-    mode,
-    setMode,
-    templateValues,
-    setTemplateValues,
-    keywords,
+    filePath,
+    setFilePath,
+    title,
+    setTitle,
     isModified,
-    handleKeywordChange,
   };
 }

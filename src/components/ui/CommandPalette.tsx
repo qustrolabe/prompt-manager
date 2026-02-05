@@ -6,7 +6,7 @@ import "./CommandPalette.css";
 
 export default function CommandPaletteComponent() {
   const [open, setOpen] = useState(false);
-  const { theme, setTheme } = useTheme();
+  const { theme, toggleTheme } = useTheme();
 
   // Handle Ctrl+K
   useEffect(() => {
@@ -33,12 +33,12 @@ export default function CommandPaletteComponent() {
 
         <Command.Group heading="Appearance">
           <Command.Item
-            onSelect={() => setTheme(theme === "dark" ? "light" : "dark")}
+            onSelect={toggleTheme}
           >
             {theme === "dark"
               ? <LuSun className="mr-2 h-4 w-4" />
               : <LuMoon className="mr-2 h-4 w-4" />}
-            <span>Toggle Dark Mode</span>
+            <span>Toggle Theme</span>
           </Command.Item>
         </Command.Group>
       </Command.List>

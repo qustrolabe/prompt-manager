@@ -1,5 +1,5 @@
 use log::info;
-use sqlx::{Pool, Sqlite, SqlitePool};
+use sqlx::{Pool, Row, Sqlite, SqlitePool};
 use std::path::PathBuf;
 use tauri::Manager;
 
@@ -14,7 +14,7 @@ fn get_db_path(app_handle: &tauri::AppHandle) -> PathBuf {
         .path()
         .app_data_dir()
         .expect("failed to get app data dir")
-        .join("prompt-manager.db");
+        .join("cache.db");
 
     // Ensure parent directory exists
     if let Some(parent) = path.parent() {
@@ -39,26 +39,36 @@ pub async fn init_db(app_handle: &tauri::AppHandle) -> Result<DbPool, sqlx::Erro
 
     // Create tables
     sqlx::query(CREATE_PROMPTS_TABLE).execute(&pool).await?;
-    sqlx::query(CREATE_SNIPPETS_TABLE).execute(&pool).await?;
     sqlx::query(CREATE_TAGS_TABLE).execute(&pool).await?;
     sqlx::query(CREATE_VIEWS_TABLE).execute(&pool).await?;
     sqlx::query(CREATE_PROMPT_TAGS_TABLE).execute(&pool).await?;
-    sqlx::query(CREATE_SNIPPET_TAGS_TABLE)
-        .execute(&pool)
-        .await?;
-    sqlx::query(CREATE_PROMPT_TEMPLATE_VALUES_TABLE)
-        .execute(&pool)
-        .await?;
 
     // Create indexes
     sqlx::query(CREATE_PROMPT_TAGS_INDEX).execute(&pool).await?;
-    sqlx::query(CREATE_SNIPPET_TAGS_INDEX)
-        .execute(&pool)
-        .await?;
-    sqlx::query(CREATE_TEMPLATE_VALUES_INDEX)
-        .execute(&pool)
-        .await?;
+
+    ensure_prompt_columns(&pool).await?;
 
     info!("Database initialized successfully");
     Ok(pool)
+}
+
+async fn ensure_prompt_columns(pool: &SqlitePool) -> Result<(), sqlx::Error> {
+    let columns = sqlx::query("PRAGMA table_info(prompts)")
+        .fetch_all(pool)
+        .await?;
+    let mut has_title = false;
+    for row in columns {
+        let name: String = row.get("name");
+        if name == "title" {
+            has_title = true;
+        }
+    }
+
+    if !has_title {
+        sqlx::query("ALTER TABLE prompts ADD COLUMN title TEXT")
+            .execute(pool)
+            .await?;
+    }
+
+    Ok(())
 }

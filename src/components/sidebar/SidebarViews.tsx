@@ -10,12 +10,20 @@ export function SidebarViews() {
   const [deletingViewId, setDeletingViewId] = useState<string | null>(null);
 
   const handleCreateView = async () => {
+    const pad = (n: number) => n.toString().padStart(2, "0");
+    const now = new Date();
+    const created = `${now.getFullYear()}-${pad(now.getMonth() + 1)}-${
+      pad(
+        now.getDate(),
+      )
+    }T${pad(now.getHours())}:${pad(now.getMinutes())}:${pad(now.getSeconds())}`;
+
     const newView: View = {
       id: crypto.randomUUID(),
       name: "",
       type: "custom",
-      config: { filter: {}, sort: { by: "created_at", order: "desc" } },
-      createdAt: new Date(),
+      config: { filter: {}, sort: { by: "created", order: "desc" } },
+      created,
     };
     await addView(newView);
   };

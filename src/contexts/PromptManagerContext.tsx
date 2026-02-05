@@ -6,22 +6,21 @@ import {
   useEffect,
   useState,
 } from "react";
-import { Prompt, Snippet, View } from "@/schemas/schemas.ts";
+import { listen } from "@tauri-apps/api/event";
+import { AppConfig, Prompt, View } from "@/schemas/schemas.ts";
 import { promptManagerService } from "@/services/PromptManagerService.ts";
 
 interface PromptManagerContextType {
+  // Config
+  config: AppConfig | null;
+  saveConfig: (config: AppConfig) => Promise<void>;
+
   // Prompts
   prompts: Prompt[]; // All prompts
   addPrompt: (prompt: Prompt) => Promise<void>;
   updatePrompt: (prompt: Prompt) => Promise<void>;
   removePrompt: (id: string) => Promise<void>;
   duplicatePrompt: (id: string) => Promise<Prompt | null>;
-
-  // Snippets
-  snippets: Snippet[];
-  addSnippet: (snippet: Snippet) => Promise<void>;
-  updateSnippet: (snippet: Snippet) => Promise<void>;
-  removeSnippet: (id: string) => Promise<void>;
 
   // Views
   views: View[];
@@ -35,7 +34,14 @@ interface PromptManagerContextType {
 
   // Loading state
   isLoading: boolean;
-  refresh: () => Promise<void>;
+  lastSyncAt: string | null;
+  refresh: (
+    options?: { overrideConfig?: AppConfig | null; skipSync?: boolean },
+  ) => Promise<void>;
+  syncVaultNow: () => Promise<import("@/bindings.ts").SyncStats>;
+
+  // Vault
+  scanVault: () => Promise<void>;
 }
 
 const PromptManagerContext = createContext<
@@ -43,48 +49,122 @@ const PromptManagerContext = createContext<
 >(undefined);
 
 export function PromptManagerProvider({ children }: { children: ReactNode }) {
+  const [config, setConfig] = useState<AppConfig | null>(null);
   const [prompts, setPrompts] = useState<Prompt[]>([]);
-  const [snippets, setSnippets] = useState<Snippet[]>([]);
   const [views, setViews] = useState<View[]>([]);
   const [allTags, setAllTags] = useState<string[]>([]);
   const [isLoading, setIsLoading] = useState(true);
+  const [lastSyncAt, setLastSyncAt] = useState<string | null>(null);
 
-  const refresh = useCallback(async () => {
+  const refresh = useCallback(async (
+    options?: { overrideConfig?: AppConfig | null; skipSync?: boolean },
+  ) => {
     setIsLoading(true);
     try {
-      const [loadedPrompts, loadedSnippets, loadedViews, tags] = await Promise
+      // First ensure we have config
+      let currentConfig = options?.overrideConfig ?? config;
+      if (!currentConfig) {
+        currentConfig = await promptManagerService.getConfig();
+        setConfig(currentConfig);
+      }
+
+      // Sync with vault if configured
+      if (currentConfig?.vaultPath && !options?.skipSync) {
+        try {
+          await promptManagerService.syncVault();
+          setLastSyncAt(new Date().toISOString());
+        } catch (e) {
+          console.error("Auto-sync failed:", e);
+        }
+      }
+
+      // If vault path is not set, we might not be able to get prompts, or we get them from cache?
+      // For now, load everything
+      const [loadedPrompts, loadedViews, tags] = await Promise
         .all([
           promptManagerService.getPrompts(),
-          promptManagerService.getSnippets(),
           promptManagerService.getViews(),
           promptManagerService.getAllTags(),
         ]);
 
-      // Sort by createdAt desc
+      // Sort by created desc
       loadedPrompts.sort((a: Prompt, b: Prompt) => {
-        const da = a.createdAt ? new Date(a.createdAt).getTime() : 0;
-        const db = b.createdAt ? new Date(b.createdAt).getTime() : 0;
-        return db - da;
-      });
-
-      loadedSnippets.sort((a: Snippet, b: Snippet) => {
-        const da = a.createdAt ? new Date(a.createdAt).getTime() : 0;
-        const db = b.createdAt ? new Date(b.createdAt).getTime() : 0;
-        return db - da;
+        const da = a.created || "";
+        const db = b.created || "";
+        return db.localeCompare(da);
       });
 
       setPrompts(loadedPrompts);
-      setSnippets(loadedSnippets);
       setViews(loadedViews);
       setAllTags(tags);
+    } catch (e) {
+      console.error("Failed to refresh data:", e);
     } finally {
       setIsLoading(false);
     }
-  }, []);
+  }, [config]);
 
+  // Initial load
   useEffect(() => {
     refresh();
   }, [refresh]);
+
+  // Config
+  const saveConfig = async (newConfig: AppConfig) => {
+    const previousConfig = config;
+    await promptManagerService.saveConfig(newConfig);
+    setConfig(newConfig);
+    const shouldRefreshVault = !previousConfig ||
+      previousConfig.vaultPath !== newConfig.vaultPath;
+    if (shouldRefreshVault) {
+      await refresh({ overrideConfig: newConfig });
+    }
+  };
+
+  const syncVaultNow = useCallback(async () => {
+    if (!config?.vaultPath) {
+      return { found: 0, updated: 0, deleted: 0 };
+    }
+    const stats = await promptManagerService.syncVault();
+    setLastSyncAt(new Date().toISOString());
+    await refresh({ overrideConfig: config, skipSync: true });
+    return stats;
+  }, [config, refresh]);
+
+  useEffect(() => {
+    if (!config?.vaultPath) return;
+
+    let unlisten: (() => void) | null = null;
+    let debounceTimer: number | null = null;
+
+    promptManagerService.startVaultWatch().catch((error) => {
+      console.error("Failed to start vault watcher", error);
+    });
+
+    listen("vault-changed", () => {
+      if (debounceTimer) {
+        window.clearTimeout(debounceTimer);
+      }
+      debounceTimer = window.setTimeout(() => {
+        syncVaultNow().catch((error) => {
+          console.error("Failed to sync vault after change", error);
+        });
+      }, 300);
+    }).then((stop) => {
+      unlisten = stop;
+    });
+
+    return () => {
+      if (debounceTimer) window.clearTimeout(debounceTimer);
+      if (unlisten) unlisten();
+    };
+  }, [config?.vaultPath, syncVaultNow]);
+
+  // Vault
+  const scanVault = async () => {
+    await promptManagerService.scanVault();
+    await refresh();
+  };
 
   // Prompt operations
   const addPrompt = async (prompt: Prompt) => {
@@ -108,22 +188,6 @@ export function PromptManagerProvider({ children }: { children: ReactNode }) {
     return duplicate;
   };
 
-  // Snippet operations
-  const addSnippet = async (snippet: Snippet) => {
-    await promptManagerService.saveSnippet(snippet);
-    await refresh();
-  };
-
-  const updateSnippet = async (snippet: Snippet) => {
-    await promptManagerService.saveSnippet(snippet);
-    await refresh();
-  };
-
-  const removeSnippet = async (id: string) => {
-    await promptManagerService.deleteSnippet(id);
-    await refresh();
-  };
-
   // View operations
   const addView = async (view: View) => {
     await promptManagerService.saveView(view);
@@ -141,7 +205,6 @@ export function PromptManagerProvider({ children }: { children: ReactNode }) {
   };
 
   const getViewById = async (id: string) => {
-    // If we have it in state, return it, otherwise fetch (though state should be source of truth for UI)
     const found = views.find((v) => v.id === id);
     if (found) return found;
     return await promptManagerService.getViewById(id);
@@ -150,15 +213,13 @@ export function PromptManagerProvider({ children }: { children: ReactNode }) {
   return (
     <PromptManagerContext.Provider
       value={{
+        config,
+        saveConfig,
         prompts,
         addPrompt,
         updatePrompt,
         removePrompt,
         duplicatePrompt,
-        snippets,
-        addSnippet,
-        updateSnippet,
-        removeSnippet,
         views,
         addView,
         updateView,
@@ -166,7 +227,10 @@ export function PromptManagerProvider({ children }: { children: ReactNode }) {
         getViewById,
         allTags,
         isLoading,
+        lastSyncAt,
         refresh,
+        scanVault,
+        syncVaultNow,
       }}
     >
       {children}

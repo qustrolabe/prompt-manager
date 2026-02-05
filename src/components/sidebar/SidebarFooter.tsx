@@ -5,7 +5,7 @@ import { Popover } from "radix-ui";
 import { useTheme } from "@/contexts/ThemeContext.tsx";
 
 export function SidebarFooter() {
-  const { theme, setTheme } = useTheme();
+  const { theme, toggleTheme } = useTheme();
 
   const [open, setOpen] = useState(false);
   const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -44,6 +44,12 @@ export function SidebarFooter() {
         >
           <div className="flex flex-col p-1 text-sm">
             <Link
+              to="/settings"
+              className="rounded-sm px-2 py-1.5 text-neutral-700 hover:bg-neutral-100 dark:text-neutral-300 dark:hover:bg-neutral-800"
+            >
+              Settings
+            </Link>
+            <Link
               to="/debug"
               className="rounded-sm px-2 py-1.5 text-neutral-700 hover:bg-neutral-100 dark:text-neutral-300 dark:hover:bg-neutral-800"
             >
@@ -51,7 +57,7 @@ export function SidebarFooter() {
             </Link>
             <button
               type="button"
-              onClick={() => setTheme(theme === "dark" ? "light" : "dark")}
+              onClick={toggleTheme}
               className="flex w-full items-center justify-between rounded-sm px-2 py-1.5 text-left text-neutral-700 hover:bg-neutral-100 dark:text-neutral-300 dark:hover:bg-neutral-800"
             >
               <span>Theme</span>

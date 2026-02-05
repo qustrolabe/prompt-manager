@@ -1,9 +1,9 @@
 // MainControls.tsx
 import React, { useRef, useState } from "react";
 import { Popover } from "radix-ui";
-import Panel from "@/components/Panel.tsx";
+import Panel from "@/components/ui/Panel.tsx";
 import { useTheme } from "@/contexts/ThemeContext.tsx";
-import { Link, useLocation } from "@tanstack/react-router";
+import { Link } from "@tanstack/react-router";
 
 import { AiOutlineMenu } from "react-icons/ai";
 
@@ -41,7 +41,7 @@ function MenuOption({
 }
 
 export default function MainControls() {
-  const { theme, setTheme } = useTheme();
+  const { theme, toggleTheme } = useTheme();
   // const { pathname } = useLocation();
 
   // const isEditor = pathname.startsWith("/editor");
@@ -143,8 +143,7 @@ export default function MainControls() {
 
                 <div className="flex flex-col gap-1 p-1">
                   <MenuOption
-                    onClick={() =>
-                      setTheme(theme === "dark" ? "light" : "dark")}
+                    onClick={toggleTheme}
                   >
                     Toggle Theme: {theme}
                   </MenuOption>

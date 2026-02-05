@@ -1,6 +1,9 @@
 mod commands;
+pub mod config;
 pub mod db;
 mod models;
+pub mod vault;
+pub mod vault_watcher;
 
 use log::info;
 use tauri::Manager;
@@ -14,9 +17,6 @@ pub fn run() {
         commands::save_prompt,
         commands::delete_prompt,
         commands::duplicate_prompt,
-        commands::get_snippets,
-        commands::save_snippet,
-        commands::delete_snippet,
         commands::get_views,
         commands::get_view_by_id,
         commands::save_view,
@@ -28,6 +28,16 @@ pub fn run() {
         commands::clear_table,
         commands::export_database_as_json,
         commands::get_database_path,
+        // Config
+        commands::get_config,
+        commands::save_config,
+        // Vault
+        commands::scan_vault,
+        commands::read_prompt_file,
+        commands::write_prompt_file,
+        commands::delete_prompt_file,
+        commands::sync_vault,
+        commands::start_vault_watch,
     ]);
 
     // Export TypeScript bindings in debug builds
@@ -54,6 +64,7 @@ pub fn run() {
                     Ok(pool) => {
                         info!("Database initialized successfully");
                         handle.manage(pool);
+                        handle.manage(vault_watcher::VaultWatcherState::default());
                     }
                     Err(e) => {
                         log::error!("Failed to initialize database: {}", e);

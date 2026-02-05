@@ -8,7 +8,7 @@
 
 export const commands = {
 /**
- * Get all prompts with their tags and template values
+ * Get all prompts with their tags from cache
  */
 async getPrompts(filter: FilterConfig | null, sort: SortConfig | null) : Promise<Result<Prompt[], DbError>> {
     try {
@@ -19,7 +19,11 @@ async getPrompts(filter: FilterConfig | null, sort: SortConfig | null) : Promise
 }
 },
 /**
- * Save a prompt (upsert)
+ * Save a prompt to cache (upsert)
+ * STRICT VAULT-FIRST:
+ * 1. Check if vault is configured
+ * 2. Write to filesystem (Master)
+ * 3. Update database (Cache)
  */
 async savePrompt(prompt: PromptInput) : Promise<Result<null, DbError>> {
     try {
@@ -30,7 +34,11 @@ async savePrompt(prompt: PromptInput) : Promise<Result<null, DbError>> {
 }
 },
 /**
- * Delete a prompt
+ * Delete a prompt from cache
+ * STRICT VAULT-FIRST:
+ * 1. Check if vault is configured
+ * 2. Delete from filesystem (Master)
+ * 3. Delete from database (Cache)
  */
 async deletePrompt(id: string) : Promise<Result<null, DbError>> {
     try {
@@ -42,43 +50,14 @@ async deletePrompt(id: string) : Promise<Result<null, DbError>> {
 },
 /**
  * Duplicate a prompt
+ * STRICT VAULT-FIRST:
+ * 1. Check if vault is configured
+ * 2. Write new file to filesystem (Master)
+ * 3. Update database (Cache)
  */
 async duplicatePrompt(id: string) : Promise<Result<Prompt | null, DbError>> {
     try {
     return { status: "ok", data: await TAURI_INVOKE("duplicate_prompt", { id }) };
-} catch (e) {
-    if(e instanceof Error) throw e;
-    else return { status: "error", error: e  as any };
-}
-},
-/**
- * Get all snippets with their tags
- */
-async getSnippets() : Promise<Result<Snippet[], DbError>> {
-    try {
-    return { status: "ok", data: await TAURI_INVOKE("get_snippets") };
-} catch (e) {
-    if(e instanceof Error) throw e;
-    else return { status: "error", error: e  as any };
-}
-},
-/**
- * Save a snippet (upsert)
- */
-async saveSnippet(snippet: SnippetInput) : Promise<Result<null, DbError>> {
-    try {
-    return { status: "ok", data: await TAURI_INVOKE("save_snippet", { snippet }) };
-} catch (e) {
-    if(e instanceof Error) throw e;
-    else return { status: "error", error: e  as any };
-}
-},
-/**
- * Delete a snippet
- */
-async deleteSnippet(id: string) : Promise<Result<null, DbError>> {
-    try {
-    return { status: "ok", data: await TAURI_INVOKE("delete_snippet", { id }) };
 } catch (e) {
     if(e instanceof Error) throw e;
     else return { status: "error", error: e  as any };
@@ -204,6 +183,98 @@ async getDatabasePath() : Promise<Result<string, DbError>> {
     if(e instanceof Error) throw e;
     else return { status: "error", error: e  as any };
 }
+},
+/**
+ * Get application configuration
+ */
+async getConfig() : Promise<Result<AppConfig, ConfigError>> {
+    try {
+    return { status: "ok", data: await TAURI_INVOKE("get_config") };
+} catch (e) {
+    if(e instanceof Error) throw e;
+    else return { status: "error", error: e  as any };
+}
+},
+/**
+ * Save application configuration
+ */
+async saveConfig(config: AppConfig) : Promise<Result<null, ConfigError>> {
+    try {
+    return { status: "ok", data: await TAURI_INVOKE("save_config", { config }) };
+} catch (e) {
+    if(e instanceof Error) throw e;
+    else return { status: "error", error: e  as any };
+}
+},
+/**
+ * Scan vault and return all prompt files
+ */
+async scanVault() : Promise<Result<PromptFile[], VaultError>> {
+    try {
+    return { status: "ok", data: await TAURI_INVOKE("scan_vault") };
+} catch (e) {
+    if(e instanceof Error) throw e;
+    else return { status: "error", error: e  as any };
+}
+},
+/**
+ * Read a single prompt file by ID
+ */
+async readPromptFile(id: string) : Promise<Result<PromptFile, VaultError>> {
+    try {
+    return { status: "ok", data: await TAURI_INVOKE("read_prompt_file", { id }) };
+} catch (e) {
+    if(e instanceof Error) throw e;
+    else return { status: "error", error: e  as any };
+}
+},
+/**
+ * Write a prompt file
+ */
+async writePromptFile(prompt: PromptFile) : Promise<Result<null, VaultError>> {
+    try {
+    return { status: "ok", data: await TAURI_INVOKE("write_prompt_file", { prompt }) };
+} catch (e) {
+    if(e instanceof Error) throw e;
+    else return { status: "error", error: e  as any };
+}
+},
+/**
+ * Delete a prompt file
+ */
+async deletePromptFile(id: string) : Promise<Result<null, VaultError>> {
+    try {
+    return { status: "ok", data: await TAURI_INVOKE("delete_prompt_file", { id }) };
+} catch (e) {
+    if(e instanceof Error) throw e;
+    else return { status: "error", error: e  as any };
+}
+},
+/**
+ * Sync vault files to database cache
+ * STRICT VAULT-FIRST:
+ * 1. Scan filesystem
+ * 2. Upsert all found files to DB
+ * 3. Remove DB entries that are not in the scan
+ */
+async syncVault() : Promise<Result<SyncStats, DbError>> {
+    try {
+    return { status: "ok", data: await TAURI_INVOKE("sync_vault") };
+} catch (e) {
+    if(e instanceof Error) throw e;
+    else return { status: "error", error: e  as any };
+}
+},
+/**
+ * Start watching the vault for external changes
+ */
+async startVaultWatch() : Promise<Result<null, VaultError>> {
+    try {
+    return { status: "ok", data: await TAURI_INVOKE("start_vault_watch") };
+} catch (e) {
+    if(e instanceof Error) throw e;
+    else return { status: "error", error: e  as any };
+}
 }
 }
 
@@ -217,33 +288,82 @@ async getDatabasePath() : Promise<Result<string, DbError>> {
 
 /** user-defined types **/
 
+/**
+ * Application configuration stored in TOML format
+ */
+export type AppConfig = { 
+/**
+ * Path to the vault directory containing prompt markdown files (as string for TypeScript)
+ */
+vaultPath: string | null; 
+/**
+ * UI theme name
+ */
+theme?: string; 
+/**
+ * View preferences
+ */
+view?: ViewSettings }
+/**
+ * Configuration errors
+ */
+export type ConfigError = { PathError: string } | { IoError: string } | { ParseError: string } | { SerializeError: string }
 export type DbError = { Database: string } | { NotFound: string } | { Serialization: string }
 export type ExportedDatabase = { tables: Partial<{ [key in string]: ExportedTable }> }
 export type ExportedTable = { schema: TableColumn[]; rows: TableRow[] }
 export type FilterConfig = { tags?: string[] | null; search?: string | null; favorite?: boolean | null }
 /**
- * Prompt with tags and template values - returned to frontend
+ * Prompt with tags - returned to frontend (legacy, for cache-based queries)
  */
-export type Prompt = { id: string; createdAt: number | null; title: string | null; text: string; description: string | null; mode: string; tags: string[]; templateValues?: Partial<{ [key in string]: string }> | null }
+export type Prompt = { id: string; created: string | null; text: string; tags: string[]; filePath: string | null; title: string | null }
 /**
- * Input for saving a prompt
+ * A prompt file representation (parsed from markdown)
  */
-export type PromptInput = { id: string; createdAt: number | null; title: string | null; text: string; description: string | null; mode: string; tags: string[]; templateValues?: Partial<{ [key in string]: string }> | null }
+export type PromptFile = { 
 /**
- * Snippet with tags - returned to frontend
+ * File identifier (relative file path)
  */
-export type Snippet = { id: string; createdAt: number | null; value: string; description: string | null; tags: string[] }
+id: string; 
 /**
- * Input for saving a snippet
+ * File path relative to vault root
  */
-export type SnippetInput = { id: string; createdAt: number | null; value: string; description: string | null; tags: string[] }
+filePath: string; 
+/**
+ * Tags from frontmatter
+ */
+tags: string[]; 
+/**
+ * Created timestamp from frontmatter (ISO string)
+ */
+created: string | null; 
+/**
+ * The prompt content (from code block)
+ */
+content: string; 
+/**
+ * Hash of the full file contents
+ */
+fileHash?: string | null; 
+/**
+ * Optional prompt title from frontmatter
+ */
+title: string | null }
+/**
+ * Input for saving a prompt (legacy, for cache-based operations)
+ */
+export type PromptInput = { id: string; created: string | null; text: string; tags: string[]; filePath: string | null; previousFilePath: string | null; title: string | null }
 export type SortConfig = { by: string; order: string }
+export type SyncStats = { found: number; updated: number; deleted: number }
 export type TableColumn = { cid: number; name: string; type: string; notnull: number; dfltValue?: string | null; pk: number }
 export type TableRow = (Partial<{ [key in string]: string }>)
 /**
+ * Vault operation errors
+ */
+export type VaultError = "NotConfigured" | { NotFound: string } | { PathNotFound: string } | { IoError: string } | { ParseError: string } | { SerializeError: string } | { InvalidFilename: string } | { InvalidFilePath: string } | { FileAlreadyExists: string } | { InvalidContent: string }
+/**
  * View - returned to frontend
  */
-export type View = { id: string; name: string; type: string; config: ViewConfig; createdAt: number }
+export type View = { id: string; name: string; type: string; config: ViewConfig; created: string }
 /**
  * View configuration for filtering and sorting
  */
@@ -251,7 +371,8 @@ export type ViewConfig = { filter?: FilterConfig | null; sort?: SortConfig | nul
 /**
  * Input for saving a view
  */
-export type ViewInput = { id: string; name: string; type: string; config: ViewConfig; createdAt: number }
+export type ViewInput = { id: string; name: string; type: string; config: ViewConfig; created: string }
+export type ViewSettings = { showPromptTitles?: boolean; showFullPrompt?: boolean; showPromptTags?: boolean; showCreatedDate?: boolean }
 
 /** tauri-specta globals **/
 
