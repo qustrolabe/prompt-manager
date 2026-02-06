@@ -6,9 +6,15 @@ interface ViewControlsProps {
   config: ViewConfig;
   onChange: (newConfig: ViewConfig) => void;
   allTags: string[];
+  onNewPrompt: () => void;
 }
 
-export function ViewControls({ config, onChange, allTags }: ViewControlsProps) {
+export function ViewControls({
+  config,
+  onChange,
+  allTags,
+  onNewPrompt,
+}: ViewControlsProps) {
   const handleSearchChange = (val: string) => {
     onChange({
       ...config,
@@ -37,7 +43,7 @@ export function ViewControls({ config, onChange, allTags }: ViewControlsProps) {
   };
 
   return (
-    <div className="flex flex-col gap-3 border-b border-panel-border bg-panel-2 p-3">
+    <div className="flex flex-col gap-2 border-b border-panel-border bg-panel-2 px-3 py-2">
       {/* Top Row: Search and some actions */}
       <div className="flex items-center gap-2">
         <div className="relative flex-1">
@@ -47,7 +53,7 @@ export function ViewControls({ config, onChange, allTags }: ViewControlsProps) {
             placeholder="Search prompts..."
             value={config.filter?.search || ""}
             onChange={(e) => handleSearchChange(e.target.value)}
-            className="w-full rounded-md border border-panel-border bg-panel px-9 py-2 text-sm text-neutral-900 focus:border-blue-500 focus:outline-none dark:bg-neutral-800 dark:text-neutral-100 dark:focus:border-blue-400"
+            className="w-full rounded-md border border-panel-border bg-panel px-9 py-1.5 text-sm text-neutral-900 focus:border-blue-500 focus:outline-none dark:bg-neutral-800 dark:text-neutral-100 dark:focus:border-blue-400"
           />
         </div>
         {/* Sort Controls */}
@@ -67,6 +73,13 @@ export function ViewControls({ config, onChange, allTags }: ViewControlsProps) {
             )}
           </button>
         </div>
+        <button
+          type="button"
+          onClick={onNewPrompt}
+          className="rounded-md bg-neutral-900 px-3 py-1.5 text-sm font-medium text-white hover:bg-neutral-800 dark:bg-neutral-100 dark:text-black dark:hover:bg-neutral-200"
+        >
+          + New Prompt
+        </button>
       </div>
 
       {/* Bottom Row: Filters (Tags) */}

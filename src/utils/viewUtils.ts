@@ -6,7 +6,16 @@ export function formatViewConfig(config: ViewConfig): string {
 
     // Format tags: #tag1 #tag2
     if (config.filter?.tags?.length) {
-        parts.push(config.filter.tags.map(t => t.startsWith("#") ? t : `#${t}`).join(" "));
+        parts.push(config.filter.tags.map((tag) => {
+            const trimmed = tag.trim();
+            if (!trimmed) return "";
+            if (trimmed.startsWith("-")) {
+                const raw = trimmed.slice(1);
+                const normalized = raw.startsWith("#") ? raw : `#${raw}`;
+                return `-${normalized}`;
+            }
+            return trimmed.startsWith("#") ? trimmed : `#${trimmed}`;
+        }).filter(Boolean).join(" "));
     }
 
     // Format sort: sort_desc:created_at

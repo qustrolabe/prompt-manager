@@ -303,7 +303,11 @@ theme?: string;
 /**
  * View preferences
  */
-view?: ViewSettings }
+view?: ViewSettings; 
+/**
+ * Frontmatter preferences
+ */
+frontmatter?: FrontmatterSettings }
 /**
  * Configuration errors
  */
@@ -312,6 +316,7 @@ export type DbError = { Database: string } | { NotFound: string } | { Serializat
 export type ExportedDatabase = { tables: Partial<{ [key in string]: ExportedTable }> }
 export type ExportedTable = { schema: TableColumn[]; rows: TableRow[] }
 export type FilterConfig = { tags?: string[] | null; search?: string | null; favorite?: boolean | null }
+export type FrontmatterSettings = { promptTagsProperty?: string; addPromptsTagToTags?: boolean }
 /**
  * Prompt with tags - returned to frontend (legacy, for cache-based queries)
  */

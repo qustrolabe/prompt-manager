@@ -204,7 +204,7 @@ function DebugPage() {
   };
 
   return (
-    <div className="min-h-screen grow bg-main-background p-6">
+    <div className="h-full overflow-auto bg-main-background p-6">
       <div className="mx-auto max-w-6xl">
         <h1 className="mb-4 font-bold text-2xl text-neutral-900 dark:text-neutral-100">
           Database Debug Panel

@@ -1,5 +1,5 @@
 import { createFileRoute } from "@tanstack/react-router";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { open } from "@tauri-apps/plugin-dialog";
 import { usePromptManager } from "@/contexts/PromptManagerContext";
 import { AppConfig } from "@/schemas/schemas.ts";
@@ -20,6 +20,7 @@ function SettingsPage() {
       deleted: number;
     } | null
   >(null);
+  const [promptTagsProperty, setPromptTagsProperty] = useState("tags");
 
   const handleBrowseVault = async () => {
     const selected = await open({
@@ -38,6 +39,36 @@ function SettingsPage() {
     }
   };
 
+  useEffect(() => {
+    if (config?.frontmatter?.promptTagsProperty) {
+      setPromptTagsProperty(config.frontmatter.promptTagsProperty);
+    }
+  }, [config?.frontmatter?.promptTagsProperty]);
+
+  const updateFrontmatter = async (
+    updates: Partial<AppConfig["frontmatter"]>,
+  ) => {
+    if (!config) return;
+    const nextConfig: AppConfig = {
+      ...config,
+      frontmatter: {
+        promptTagsProperty: config.frontmatter?.promptTagsProperty ?? "tags",
+        addPromptsTagToTags: config.frontmatter?.addPromptsTagToTags ?? false,
+        ...updates,
+      },
+    };
+    await saveConfig(nextConfig);
+  };
+
+  const commitPromptTagsProperty = async () => {
+    if (!config) return;
+    const normalized = promptTagsProperty.trim() || "tags";
+    setPromptTagsProperty(normalized);
+    if (normalized !== config.frontmatter?.promptTagsProperty) {
+      await updateFrontmatter({ promptTagsProperty: normalized });
+    }
+  };
+
   const handleSync = async () => {
     setIsSyncing(true);
     setSyncResult(null);
@@ -53,6 +84,10 @@ function SettingsPage() {
   };
 
   if (!config) return <div className="p-8">Loading config...</div>;
+  const frontmatter = config.frontmatter ?? {
+    promptTagsProperty: "tags",
+    addPromptsTagToTags: false,
+  };
 
   const themeOptions: {
     value: "dark" | "light";
@@ -163,6 +198,61 @@ function SettingsPage() {
                 </ul>
               </div>
             )}
+
+            <div className="space-y-4 rounded-xl border border-panel-border bg-panel p-4">
+              <div>
+                <h3 className="text-sm font-semibold text-neutral-900 dark:text-neutral-100">
+                  Frontmatter Tags
+                </h3>
+                <p className="mt-1 text-xs text-neutral-600 dark:text-neutral-500">
+                  Choose which frontmatter key stores prompt tags.
+                </p>
+              </div>
+              <div className="space-y-3">
+                <div>
+                  <label className="block text-xs uppercase tracking-[0.2em] text-neutral-500 dark:text-neutral-400">
+                    Prompt Tags Property
+                  </label>
+                  <input
+                    type="text"
+                    value={promptTagsProperty}
+                    onChange={(event) =>
+                      setPromptTagsProperty(event.target.value)}
+                    onBlur={commitPromptTagsProperty}
+                    onKeyDown={(event) => {
+                      if (event.key === "Enter") {
+                        event.currentTarget.blur();
+                      }
+                    }}
+                    placeholder="tags"
+                    className="mt-2 w-full rounded-lg border border-panel-border bg-panel px-4 py-2 text-sm text-neutral-900 placeholder:text-neutral-400 focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-500/20 dark:text-neutral-200"
+                  />
+                  <p className="mt-2 text-xs text-neutral-500 dark:text-neutral-500">
+                    Prompt tags will be read from and written to this key.
+                  </p>
+                </div>
+
+                <label className="flex items-center justify-between gap-3 rounded-lg border border-panel-border bg-panel-2 px-4 py-3 text-sm text-neutral-700 dark:text-neutral-200">
+                  <span>
+                    Also add <span className="font-semibold">prompts</span> to
+                    <span className="ml-1 font-mono">tags</span>
+                  </span>
+                  <input
+                    type="checkbox"
+                    checked={frontmatter.addPromptsTagToTags}
+                    onChange={(event) =>
+                      updateFrontmatter({
+                        addPromptsTagToTags: event.target.checked,
+                      })}
+                    className="h-4 w-4 accent-blue-600"
+                  />
+                </label>
+                <p className="text-xs text-neutral-500 dark:text-neutral-500">
+                  Helpful for Obsidian filters when using a custom prompt tag
+                  property.
+                </p>
+              </div>
+            </div>
           </div>
         </section>
 

@@ -114,8 +114,14 @@ export function PromptManagerProvider({ children }: { children: ReactNode }) {
     const previousConfig = config;
     await promptManagerService.saveConfig(newConfig);
     setConfig(newConfig);
+    const frontmatterChanged = !previousConfig ||
+      previousConfig.frontmatter?.promptTagsProperty !==
+        newConfig.frontmatter.promptTagsProperty ||
+      previousConfig.frontmatter?.addPromptsTagToTags !==
+        newConfig.frontmatter.addPromptsTagToTags;
     const shouldRefreshVault = !previousConfig ||
-      previousConfig.vaultPath !== newConfig.vaultPath;
+      previousConfig.vaultPath !== newConfig.vaultPath ||
+      frontmatterChanged;
     if (shouldRefreshVault) {
       await refresh({ overrideConfig: newConfig });
     }

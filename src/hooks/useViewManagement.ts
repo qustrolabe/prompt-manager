@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { View, ViewConfig } from "@/schemas/schemas.ts";
 import { formatViewConfig } from "@/utils/viewUtils.ts";
+import { useViewConfig } from "@/contexts/ViewConfigContext.tsx";
 
 interface UseViewManagementProps {
   viewId?: string;
@@ -13,11 +14,7 @@ export function useViewManagement({
   views,
   updateView,
 }: UseViewManagementProps) {
-  // Local state for system view config (ephemeral)
-  const [systemConfig, setSystemConfig] = useState<ViewConfig>({
-    filter: {},
-    sort: { by: "created", order: "desc" },
-  });
+  const { systemConfig, setSystemConfig } = useViewConfig();
 
   // Title Editing State
   const [isEditingTitle, setIsEditingTitle] = useState(false);

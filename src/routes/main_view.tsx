@@ -1,14 +1,16 @@
-import { KeyboardEvent, useRef } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { createFileRoute, useSearch } from "@tanstack/react-router";
 import { usePromptManager } from "@/contexts/PromptManagerContext.tsx";
-import { Prompt } from "@/schemas/schemas.ts";
+import { Prompt, ViewConfig } from "@/schemas/schemas.ts";
 import { ViewControls } from "@/components/ui/ViewControls.tsx";
 import { PromptEditOverlay } from "@/components/prompts/PromptEditOverlay.tsx";
-import { usePromptFiltering } from "@/hooks/usePromptFiltering.ts";
 import { useViewManagement } from "@/hooks/useViewManagement.ts";
 import { useOverlayState } from "@/hooks/useOverlayState.ts";
 import { PromptList } from "@/components/prompts/PromptList.tsx";
 import { useToast } from "@/components/ui/ToastProvider.tsx";
+import { useViewHeader } from "@/contexts/ViewHeaderContext.tsx";
+import { promptManagerService } from "@/services/PromptManagerService.ts";
+import { useViewConfig } from "@/contexts/ViewConfigContext.tsx";
 
 // Define search params schema
 interface MainViewSearch {
@@ -39,6 +41,9 @@ function MainViewComponent() {
     config,
   } = usePromptManager();
   const { pushToast } = useToast();
+  const { header, setHeader } = useViewHeader();
+  const { viewPrompts, setViewPrompts } = useViewConfig();
+  const [showControls, setShowControls] = useState(true);
 
   // View Management Hook
   const {
@@ -54,8 +59,22 @@ function MainViewComponent() {
     startEditingTitle,
   } = useViewManagement({ viewId, views, updateView });
 
-  // Prompt Filtering Hook
-  const filteredPrompts = usePromptFiltering(prompts, currentConfig);
+  const loadPrompts = useCallback(async (config: ViewConfig) => {
+    try {
+      const data = await promptManagerService.getPrompts({
+        filter: config.filter,
+        sort: config.sort,
+      });
+      setViewPrompts(data);
+    } catch (error) {
+      console.error("Failed to load filtered prompts", error);
+      pushToast({
+        title: "Failed to load prompts",
+        description: error instanceof Error ? error.message : String(error),
+        variant: "error",
+      });
+    }
+  }, [pushToast]);
 
   // Overlay State Hooks
   const promptOverlay = useOverlayState<Prompt>();
@@ -65,6 +84,7 @@ function MainViewComponent() {
     try {
       if (promptOverlay.isNew) await addPrompt(p);
       else await updatePrompt(p);
+      await loadPrompts(currentConfig);
       promptOverlay.close();
     } catch (error) {
       console.error("Failed to save prompt", error);
@@ -76,70 +96,75 @@ function MainViewComponent() {
     }
   };
 
-  const handleTitleKeyDown = (e: KeyboardEvent) => {
-    if (e.key === "Enter") handleTitleBlur();
-  };
-
   const parentRef = useRef<HTMLDivElement>(null);
+
+  const canRename = Boolean(activeView && activeView.type === "custom");
+  const nextHeader = useMemo(
+    () => ({
+      title: getDisplayTitle(),
+      canRename,
+      isEditing: isEditingTitle,
+      titleInput,
+      setTitleInput,
+      startEditing: canRename ? startEditingTitle : () => {},
+      commitEditing: handleTitleBlur,
+      toggleControls: () => setShowControls((prev) => !prev),
+      controlsVisible: showControls,
+    }),
+    [
+      canRename,
+      getDisplayTitle,
+      handleTitleBlur,
+      isEditingTitle,
+      setTitleInput,
+      showControls,
+      startEditingTitle,
+      titleInput,
+    ],
+  );
+
+  useEffect(() => {
+    const isSame = header &&
+      header.title === nextHeader.title &&
+      header.canRename === nextHeader.canRename &&
+      header.isEditing === nextHeader.isEditing &&
+      header.titleInput === nextHeader.titleInput &&
+      header.controlsVisible === nextHeader.controlsVisible;
+
+    if (!isSame) {
+      setHeader(nextHeader);
+    }
+  }, [header, nextHeader, setHeader]);
+
+  useEffect(() => {
+    return () => setHeader(null);
+  }, [setHeader]);
+
+  useEffect(() => {
+    loadPrompts(currentConfig);
+  }, [currentConfig, loadPrompts, prompts]);
 
   return (
     <div className="flex h-full flex-1 flex-col overflow-hidden bg-main-background">
-      {/* View Header / Controls */}
-      <div className="border-b border-panel-border bg-panel px-4 py-3">
-        <div className="flex items-center gap-2">
-          {activeView && isEditingTitle
-            ? (
-              <input
-                autoFocus
-                type="text"
-                value={titleInput}
-                onChange={(e) => setTitleInput(e.target.value)}
-                onBlur={handleTitleBlur}
-                onKeyDown={handleTitleKeyDown}
-                className="border-b border-blue-500 bg-transparent font-semibold text-lg text-neutral-900 focus:outline-none dark:text-neutral-100"
-              />
-            )
-            : (
-              <h1
-                className={`font-semibold text-lg text-neutral-900 dark:text-neutral-100 ${
-                  activeView
-                    ? "cursor-pointer hover:underline decoration-dotted"
-                    : ""
-                }`}
-                onClick={startEditingTitle}
-              >
-                {getDisplayTitle()}
-              </h1>
-            )}
-        </div>
-      </div>
-
-      <ViewControls
-        config={currentConfig}
-        onChange={handleConfigChange}
-        allTags={allTags}
-      />
+      {showControls && (
+        <ViewControls
+          config={currentConfig}
+          onChange={handleConfigChange}
+          allTags={allTags}
+          onNewPrompt={() => promptOverlay.openNew()}
+        />
+      )}
 
       {/* Main Content List */}
       <div ref={parentRef} className="flex-1 overflow-y-auto p-4">
         <div className="mx-auto max-w-4xl">
-          {/* Create Actions */}
-          <div className="mb-4 flex justify-end">
-            <button
-              type="button"
-              onClick={() => promptOverlay.openNew()}
-              className="rounded-md bg-neutral-900 px-4 py-2 font-medium text-sm text-white hover:bg-neutral-800 dark:bg-neutral-100 dark:text-black dark:hover:bg-neutral-200"
-            >
-              + New Prompt
-            </button>
-          </div>
-
           <PromptList
-            prompts={filteredPrompts}
+            prompts={viewPrompts}
             parentRef={parentRef}
             onEdit={promptOverlay.openEdit}
             onDelete={async (prompt) => {
               await removePrompt(prompt.id);
+              await loadPrompts(currentConfig);
             }}
             showTitles={config?.view?.showPromptTitles ?? true}
             showFullPrompt={config?.view?.showFullPrompt ?? false}
@@ -159,10 +184,12 @@ function MainViewComponent() {
           onSave={handlePromptSave}
           onDelete={async (id) => {
             await removePrompt(id);
+            await loadPrompts(currentConfig);
             promptOverlay.close();
           }}
           onDuplicate={async (id) => {
             await duplicatePrompt(id);
+            await loadPrompts(currentConfig);
             promptOverlay.close();
           }}
           onClose={promptOverlay.close}

@@ -101,6 +101,12 @@ class TauriPromptManagerService {
   async getConfig(): Promise<AppConfig> {
     const res = await commands.getConfig();
     const data = unwrap(res);
+    const frontmatter = (data as {
+      frontmatter?: {
+        promptTagsProperty?: string;
+        addPromptsTagToTags?: boolean;
+      };
+    }).frontmatter;
     return {
       vaultPath: data.vaultPath,
       theme: data.theme || "dark",
@@ -110,11 +116,17 @@ class TauriPromptManagerService {
         showPromptTags: data.view?.showPromptTags ?? true,
         showCreatedDate: data.view?.showCreatedDate ?? true,
       },
+      frontmatter: {
+        promptTagsProperty: frontmatter?.promptTagsProperty?.trim() || "tags",
+        addPromptsTagToTags: frontmatter?.addPromptsTagToTags ?? false,
+      },
     };
   }
 
   async saveConfig(config: AppConfig): Promise<void> {
-    const input: RsAppConfig = {
+    const promptTagsProperty = config.frontmatter.promptTagsProperty.trim() ||
+      "tags";
+    const input = {
       vaultPath: config.vaultPath,
       theme: config.theme,
       view: {
@@ -123,7 +135,11 @@ class TauriPromptManagerService {
         showPromptTags: config.view.showPromptTags,
         showCreatedDate: config.view.showCreatedDate,
       },
-    };
+      frontmatter: {
+        promptTagsProperty,
+        addPromptsTagToTags: config.frontmatter.addPromptsTagToTags,
+      },
+    } as RsAppConfig;
     const res = await commands.saveConfig(input);
     unwrap(res);
   }

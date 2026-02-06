@@ -4,9 +4,12 @@ import CommandPalette from "@/components/ui/CommandPalette.tsx";
 import { Sidebar as LeftSidebar } from "@/components/sidebar/Sidebar.tsx";
 import { TitleBar } from "@/components/TitleBar.tsx";
 import { PromptManagerProvider } from "@/contexts/PromptManagerContext.tsx";
-import { ThemeProvider } from "@/contexts/ThemeContext.tsx";
+import { SidebarProvider } from "@/contexts/SidebarContext.tsx";
 import { ConsoleErrorProvider } from "@/contexts/ConsoleErrorContext.tsx";
+import { ThemeProvider } from "@/contexts/ThemeContext.tsx";
 import { ToastProvider } from "@/components/ui/ToastProvider.tsx";
+import { ViewHeaderProvider } from "@/contexts/ViewHeaderContext.tsx";
+import { ViewConfigProvider } from "@/contexts/ViewConfigContext.tsx";
 import React from "react";
 
 export const Route = createRootRoute({
@@ -19,19 +22,26 @@ function RootComponent() {
       <PromptManagerProvider>
         <ConsoleErrorProvider>
           <ThemeProvider>
-            <ToastProvider>
-              <CommandPalette />
+            <SidebarProvider>
+              <ViewConfigProvider>
+                <ViewHeaderProvider>
+                  <ToastProvider>
+                    <CommandPalette />
 
-              <TitleBar />
-
-              <div className="flex h-screen flex-row pt-8">
-                <LeftSidebar />
-                <div className="flex-1 bg-main-background">
-                  <Outlet />
-                </div>
-                {/* <RightSidebar /> */}
-              </div>
-            </ToastProvider>
+                    <div className="flex h-screen flex-col overflow-hidden">
+                      <TitleBar />
+                      <div className="flex flex-1 flex-row overflow-hidden">
+                        <LeftSidebar />
+                        <div className="flex-1 overflow-hidden bg-main-background">
+                          <Outlet />
+                        </div>
+                        {/* <RightSidebar /> */}
+                      </div>
+                    </div>
+                  </ToastProvider>
+                </ViewHeaderProvider>
+              </ViewConfigProvider>
+            </SidebarProvider>
           </ThemeProvider>
         </ConsoleErrorProvider>
       </PromptManagerProvider>

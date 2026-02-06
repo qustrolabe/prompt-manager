@@ -18,6 +18,27 @@ pub struct AppConfig {
     /// View preferences
     #[serde(default)]
     pub view: ViewSettings,
+    /// Frontmatter preferences
+    #[serde(default)]
+    pub frontmatter: FrontmatterSettings,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, Type)]
+#[serde(rename_all = "camelCase")]
+pub struct FrontmatterSettings {
+    #[serde(default = "default_prompt_tags_property")]
+    pub prompt_tags_property: String,
+    #[serde(default)]
+    pub add_prompts_tag_to_tags: bool,
+}
+
+impl Default for FrontmatterSettings {
+    fn default() -> Self {
+        Self {
+            prompt_tags_property: default_prompt_tags_property(),
+            add_prompts_tag_to_tags: false,
+        }
+    }
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, Type)]
@@ -62,6 +83,10 @@ fn default_show_prompt_tags() -> bool {
 
 fn default_show_created_date() -> bool {
     true
+}
+
+fn default_prompt_tags_property() -> String {
+    "tags".to_string()
 }
 
 /// Get the config file path using Tauri's app config directory

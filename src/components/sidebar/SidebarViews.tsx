@@ -1,13 +1,32 @@
-import { Link } from "@tanstack/react-router";
+import { Link, useNavigate, useRouterState } from "@tanstack/react-router";
 import { usePromptManager } from "@/contexts/PromptManagerContext.tsx";
 import { FiCheck, FiPlus, FiTrash2, FiX } from "react-icons/fi";
-import { useState } from "react";
-import { View } from "@/schemas/schemas.ts";
+import { useMemo, useState } from "react";
+import { View, ViewConfig } from "@/schemas/schemas.ts";
 import { formatViewConfig } from "@/utils/viewUtils.ts";
+import { useViewConfig } from "@/contexts/ViewConfigContext.tsx";
 
 export function SidebarViews() {
   const { views, addView, removeView } = usePromptManager();
   const [deletingViewId, setDeletingViewId] = useState<string | null>(null);
+  const navigate = useNavigate();
+  const location = useRouterState({ select: (state) => state.location });
+  const { systemConfig } = useViewConfig();
+
+  const activeViewId = useMemo(() => {
+    if (location.pathname !== "/main_view") return undefined;
+    const params = new URLSearchParams(location.search);
+    const raw = params.get("viewId");
+    return raw || undefined;
+  }, [location.pathname, location.search]);
+
+  const activeConfig = useMemo<ViewConfig>(() => {
+    if (activeViewId) {
+      const found = views.find((view) => view.id === activeViewId);
+      if (found) return found.config;
+    }
+    return systemConfig;
+  }, [activeViewId, systemConfig, views]);
 
   const handleCreateView = async () => {
     const pad = (n: number) => n.toString().padStart(2, "0");
@@ -22,10 +41,11 @@ export function SidebarViews() {
       id: crypto.randomUUID(),
       name: "",
       type: "custom",
-      config: { filter: {}, sort: { by: "created", order: "desc" } },
+      config: activeConfig,
       created,
     };
     await addView(newView);
+    await navigate({ to: "/main_view", search: { viewId: newView.id } });
   };
 
   const handleTrashClick = (e: React.MouseEvent, id: string) => {
@@ -51,6 +71,14 @@ export function SidebarViews() {
 
   return (
     <div className="mb-6">
+      <Link
+        to="/main_view"
+        className={activeViewId
+          ? "mb-2 flex w-full items-center gap-2 rounded-md px-2 py-2 text-neutral-700 hover:bg-neutral-100 dark:text-neutral-300 dark:hover:bg-neutral-800"
+          : "mb-2 flex w-full items-center gap-2 rounded-md px-2 py-2 bg-blue-50 text-blue-600 dark:bg-blue-900/20 dark:text-blue-400"}
+      >
+        All Prompts
+      </Link>
       <div className="mb-2 flex items-center justify-between px-2 text-xs font-medium uppercase text-neutral-500">
         <span>Views</span>
         <button

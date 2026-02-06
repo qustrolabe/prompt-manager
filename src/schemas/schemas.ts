@@ -45,6 +45,10 @@ export const AppConfigSchema = z.object({
     showPromptTags: z.boolean(),
     showCreatedDate: z.boolean(),
   }),
+  frontmatter: z.object({
+    promptTagsProperty: z.string(),
+    addPromptsTagToTags: z.boolean(),
+  }),
 });
 
 export type AppConfig = z.infer<typeof AppConfigSchema>;

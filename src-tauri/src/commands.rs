@@ -59,10 +59,36 @@ pub async fn get_prompts(
 
     // Apply filters in memory
     if let Some(filter) = filter {
-        // Filter by tags (AND logic)
+        // Filter by tags (AND logic + negative tags)
         if let Some(filter_tags) = &filter.tags {
             if !filter_tags.is_empty() {
-                prompts.retain(|p| filter_tags.iter().all(|t| p.tags.contains(t)));
+                let mut positive_tags: Vec<String> = Vec::new();
+                let mut negative_tags: Vec<String> = Vec::new();
+
+                for tag in filter_tags {
+                    let trimmed = tag.trim();
+                    if trimmed.is_empty() {
+                        continue;
+                    }
+                    if let Some(stripped) = trimmed.strip_prefix('-') {
+                        let raw = stripped.trim();
+                        if !raw.is_empty() {
+                            negative_tags.push(raw.to_string());
+                        }
+                    } else {
+                        positive_tags.push(trimmed.to_string());
+                    }
+                }
+
+                if !positive_tags.is_empty() || !negative_tags.is_empty() {
+                    prompts.retain(|p| {
+                        let has_all_positive =
+                            positive_tags.iter().all(|t| p.tags.contains(t));
+                        let has_no_negative =
+                            negative_tags.iter().all(|t| !p.tags.contains(t));
+                        has_all_positive && has_no_negative
+                    });
+                }
             }
         }
 
@@ -163,7 +189,7 @@ pub async fn save_prompt(
     };
 
     // 3. Write to Filesystem
-    vault::write_prompt_file(vault_path, &prompt_file)
+    vault::write_prompt_file(vault_path, &prompt_file, &config.frontmatter)
         .map_err(|e| DbError::Database(format!("Failed to write to vault: {}", e)))?;
 
     // 4. Update Database (Cache)
@@ -343,7 +369,7 @@ pub async fn duplicate_prompt(
     };
 
     // 2. Write to Filesystem
-    vault::write_prompt_file(vault_path, &prompt_file)
+    vault::write_prompt_file(vault_path, &prompt_file, &config.frontmatter)
         .map_err(|e| DbError::Database(format!("Failed to write to vault: {}", e)))?;
 
     // 3. Save the new prompt using the existing function logic (upsert to DB)
@@ -637,7 +663,7 @@ pub fn scan_vault(app: AppHandle) -> Result<Vec<PromptFile>, VaultError> {
 
     let vault_path = config.vault_path.ok_or(VaultError::NotConfigured)?;
 
-    vault::scan_vault(Path::new(&vault_path))
+    vault::scan_vault(Path::new(&vault_path), &config.frontmatter)
 }
 
 /// Sync vault files to database cache
@@ -660,7 +686,7 @@ pub async fn sync_vault(app: AppHandle, db: State<'_, DbPool>) -> Result<SyncSta
     let vault_path = Path::new(&vault_path_str);
 
     // 1. Scan Vault
-    let files = vault::scan_vault(vault_path)
+    let files = vault::scan_vault(vault_path, &config.frontmatter)
         .map_err(|e| DbError::Database(format!("Failed to scan vault: {}", e)))?;
 
     let mut tx = db.inner().begin().await?;
@@ -740,7 +766,7 @@ pub fn read_prompt_file(app: AppHandle, id: String) -> Result<PromptFile, VaultE
 
     let vault_path = config.vault_path.ok_or(VaultError::NotConfigured)?;
 
-    vault::find_prompt_by_id(Path::new(&vault_path), &id)
+    vault::find_prompt_by_id(Path::new(&vault_path), &id, &config.frontmatter)
 }
 
 /// Write a prompt file
@@ -753,7 +779,7 @@ pub fn write_prompt_file(app: AppHandle, prompt: PromptFile) -> Result<(), Vault
 
     let vault_path = config.vault_path.ok_or(VaultError::NotConfigured)?;
 
-    vault::write_prompt_file(Path::new(&vault_path), &prompt)
+    vault::write_prompt_file(Path::new(&vault_path), &prompt, &config.frontmatter)
 }
 
 /// Delete a prompt file

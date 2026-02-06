@@ -2,7 +2,7 @@ import { useEffect, useState } from "react";
 import { getCurrentWindow } from "@tauri-apps/api/window";
 import { usePromptManager } from "@/contexts/PromptManagerContext.tsx";
 import { useConsoleErrors } from "@/contexts/ConsoleErrorContext.tsx";
-import { Popover } from "radix-ui";
+import { ContextMenu, Popover } from "radix-ui";
 import {
   VscChromeClose,
   VscChromeMaximize,
@@ -10,6 +10,9 @@ import {
   VscChromeRestore,
 } from "react-icons/vsc";
 import { FiDatabase } from "react-icons/fi";
+import { FiSidebar } from "react-icons/fi";
+import { useSidebar } from "@/contexts/SidebarContext.tsx";
+import { useViewHeader } from "@/contexts/ViewHeaderContext.tsx";
 
 export function TitleBar() {
   const [appWindow, setAppWindow] = useState<
@@ -19,6 +22,8 @@ export function TitleBar() {
   const [now, setNow] = useState(() => Date.now());
   const { prompts, lastSyncAt, config, saveConfig } = usePromptManager();
   const { hasErrors, errorCount } = useConsoleErrors();
+  const { toggle } = useSidebar();
+  const { header } = useViewHeader();
 
   const lastSyncLabel = (() => {
     if (!lastSyncAt) return "Never";
@@ -133,9 +138,18 @@ export function TitleBar() {
   return (
     <div
       data-tauri-drag-region
-      className="fixed top-0 right-0 left-0 z-50 flex h-8 select-none items-center justify-between border-b border-panel-border bg-panel text-xs"
+      className="flex h-8 select-none items-center justify-between border-b border-panel-border bg-panel text-xs relative"
     >
-      <div data-tauri-drag-region className="flex h-full flex-1 items-center gap-3 pl-4">
+      <div data-tauri-drag-region className="flex h-full flex-1 items-center gap-3 pl-2">
+        <button
+          type="button"
+          data-tauri-drag-region="false"
+          onClick={toggle}
+          className="pointer-events-auto flex h-6 w-6 items-center justify-center rounded-md text-neutral-500 hover:bg-neutral-100 dark:hover:bg-neutral-800"
+          title="Toggle sidebar"
+        >
+          <FiSidebar size={14} />
+        </button>
         <span
           data-tauri-drag-region
           className="pointer-events-none font-semibold opacity-70"
@@ -236,6 +250,68 @@ export function TitleBar() {
         />
         <div data-tauri-drag-region className="flex-1" />
       </div>
+
+      {header && (
+        <div
+          data-tauri-drag-region="false"
+          className="pointer-events-auto absolute left-1/2 flex max-w-[45%] -translate-x-1/2 items-center justify-center"
+        >
+          {header.isEditing
+            ? (
+              <input
+                autoFocus
+                type="text"
+                value={header.titleInput}
+                onChange={(event) => header.setTitleInput(event.target.value)}
+                onBlur={header.commitEditing}
+                onKeyDown={(event) => {
+                  if (event.key === "Enter") {
+                    header.commitEditing();
+                  }
+                }}
+                className="w-full rounded-md border border-panel-border bg-panel px-2 py-1 text-[11px] font-semibold text-neutral-900 focus:border-blue-500 focus:outline-none dark:text-neutral-100"
+              />
+            )
+            : (
+              <ContextMenu.Root>
+                <ContextMenu.Trigger asChild>
+                  <button
+                    type="button"
+                    onClick={header.toggleControls}
+                    className="max-w-full truncate rounded-md px-3 py-1 text-[11px] font-semibold uppercase tracking-[0.2em] text-neutral-500 transition hover:bg-neutral-100 hover:text-neutral-700 dark:text-neutral-400 dark:hover:bg-neutral-800 dark:hover:text-neutral-200"
+                    title="Click to toggle filters"
+                  >
+                    {header.title}
+                  </button>
+                </ContextMenu.Trigger>
+                <ContextMenu.Portal>
+                  <ContextMenu.Content className="w-44 rounded-md border border-panel-border bg-panel p-1 shadow-lg">
+                    <ContextMenu.Item
+                      onSelect={header.toggleControls}
+                      className="cursor-pointer rounded-sm px-2 py-1.5 text-sm text-neutral-700 hover:bg-neutral-100 focus:outline-none dark:text-neutral-200 dark:hover:bg-neutral-800"
+                    >
+                      Toggle inputs
+                    </ContextMenu.Item>
+                    <ContextMenu.Item
+                      disabled={!header.canRename}
+                      onSelect={() => {
+                        if (!header.canRename) return;
+                        header.startEditing();
+                      }}
+                      className={`rounded-sm px-2 py-1.5 text-sm focus:outline-none ${
+                        header.canRename
+                          ? "cursor-pointer text-neutral-700 hover:bg-neutral-100 dark:text-neutral-200 dark:hover:bg-neutral-800"
+                          : "cursor-not-allowed text-neutral-400"
+                      }`}
+                    >
+                      {header.canRename ? "Rename" : "Can't rename"}
+                    </ContextMenu.Item>
+                  </ContextMenu.Content>
+                </ContextMenu.Portal>
+              </ContextMenu.Root>
+            )}
+        </div>
+      )}
 
       {/* Window Controls */}
       <div className="flex h-full">

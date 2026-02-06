@@ -1,4 +1,5 @@
 use chrono::{Local, Utc};
+use crate::config::FrontmatterSettings;
 use gray_matter::{engine::YAML, Matter};
 use log::info;
 use serde::{Deserialize, Serialize};
@@ -8,17 +9,6 @@ use specta::Type;
 use std::fs;
 use std::path::Path;
 use uuid::Uuid;
-
-/// Prompt frontmatter parsed from YAML
-#[derive(Debug, Clone, Serialize, Deserialize, Default)]
-pub struct PromptFrontmatter {
-    #[serde(default)]
-    pub tags: Vec<String>,
-    #[serde(default)]
-    pub created: Option<String>,
-    #[serde(default)]
-    pub title: Option<String>,
-}
 
 /// A prompt file representation (parsed from markdown)
 #[derive(Debug, Clone, Serialize, Deserialize, Type)]
@@ -67,7 +57,10 @@ pub enum VaultError {
 }
 
 /// Scan vault directory and return all prompt files
-pub fn scan_vault(vault_path: &Path) -> Result<Vec<PromptFile>, VaultError> {
+pub fn scan_vault(
+    vault_path: &Path,
+    frontmatter_settings: &FrontmatterSettings,
+) -> Result<Vec<PromptFile>, VaultError> {
     if !vault_path.exists() {
         return Err(VaultError::PathNotFound(vault_path.display().to_string()));
     }
@@ -82,7 +75,7 @@ pub fn scan_vault(vault_path: &Path) -> Result<Vec<PromptFile>, VaultError> {
         if path.extension().and_then(|ext| ext.to_str()) != Some("md") {
             continue;
         }
-        match read_prompt_file(vault_path, &path) {
+        match read_prompt_file(vault_path, &path, frontmatter_settings) {
             Ok(prompt) => prompts.push(prompt),
             Err(e) => {
                 info!("Skipping file {:?}: {}", path, e);
@@ -97,6 +90,7 @@ pub fn scan_vault(vault_path: &Path) -> Result<Vec<PromptFile>, VaultError> {
 pub fn find_prompt_by_id(
     vault_path: &Path,
     id: &str,
+    frontmatter_settings: &FrontmatterSettings,
 ) -> Result<PromptFile, VaultError> {
     if !vault_path.exists() {
         return Err(VaultError::PathNotFound(vault_path.display().to_string()));
@@ -104,12 +98,16 @@ pub fn find_prompt_by_id(
 
     let relative_path = normalize_relative_path(id)?;
     let file_path = vault_path.join(&relative_path);
-    read_prompt_file(vault_path, &file_path)
+    read_prompt_file(vault_path, &file_path, frontmatter_settings)
         .map_err(|_| VaultError::NotFound(id.to_string()))
 }
 
 /// Read and parse a single prompt markdown file
-pub fn read_prompt_file(vault_path: &Path, file_path: &Path) -> Result<PromptFile, VaultError> {
+pub fn read_prompt_file(
+    vault_path: &Path,
+    file_path: &Path,
+    frontmatter_settings: &FrontmatterSettings,
+) -> Result<PromptFile, VaultError> {
     // Read file content
     let content = fs::read_to_string(file_path).map_err(|e| VaultError::IoError(e.to_string()))?;
     let file_hash = Some(compute_file_hash(&content));
@@ -118,10 +116,15 @@ pub fn read_prompt_file(vault_path: &Path, file_path: &Path) -> Result<PromptFil
     let matter = Matter::<YAML>::new();
     let parsed = matter.parse(&content);
 
-    let frontmatter: PromptFrontmatter = parsed
+    let frontmatter_map: Mapping = parsed
         .data
         .and_then(|d| d.deserialize().ok())
-        .unwrap_or_default();
+        .unwrap_or_else(Mapping::new);
+
+    let prompt_tags_property = normalize_frontmatter_key(&frontmatter_settings.prompt_tags_property);
+    let tags = extract_tags(&frontmatter_map, &prompt_tags_property);
+    let created = extract_string(&frontmatter_map, "created");
+    let title = extract_string(&frontmatter_map, "title");
 
     // Extract content from code block
     let prompt_content = extract_code_block_content(&parsed.content);
@@ -136,16 +139,20 @@ pub fn read_prompt_file(vault_path: &Path, file_path: &Path) -> Result<PromptFil
     Ok(PromptFile {
         id: relative_path.clone(),
         file_path: relative_path,
-        tags: frontmatter.tags,
-        created: frontmatter.created,
+        tags,
+        created,
         content: prompt_content,
         file_hash,
-        title: frontmatter.title,
+        title,
     })
 }
 
 /// Write a prompt to a markdown file
-pub fn write_prompt_file(vault_path: &Path, prompt: &PromptFile) -> Result<(), VaultError> {
+pub fn write_prompt_file(
+    vault_path: &Path,
+    prompt: &PromptFile,
+    frontmatter_settings: &FrontmatterSettings,
+) -> Result<(), VaultError> {
     if prompt.content.contains("```") || prompt.content.contains("~~~") {
         return Err(VaultError::InvalidContent(
             "Prompt content cannot include ``` or ~~~".to_string(),
@@ -173,10 +180,19 @@ pub fn write_prompt_file(vault_path: &Path, prompt: &PromptFile) -> Result<(), V
         YamlValue::String("created".to_string()),
         YamlValue::String(created),
     );
-    frontmatter_map.insert(
-        YamlValue::String("tags".to_string()),
-        YamlValue::Sequence(prompt.tags.iter().map(|t| YamlValue::String(t.clone())).collect()),
+    let prompt_tags_property = normalize_frontmatter_key(&frontmatter_settings.prompt_tags_property);
+    set_tags(
+        &mut frontmatter_map,
+        &prompt_tags_property,
+        &prompt.tags,
     );
+    if frontmatter_settings.add_prompts_tag_to_tags {
+        let mut existing_tags = extract_tags(&frontmatter_map, "tags");
+        if !existing_tags.iter().any(|t| t == "prompts") {
+            existing_tags.push("prompts".to_string());
+        }
+        set_tags(&mut frontmatter_map, "tags", &existing_tags);
+    }
     if let Some(title) = prompt.title.clone().filter(|t| !t.trim().is_empty()) {
         frontmatter_map.insert(
             YamlValue::String("title".to_string()),
@@ -306,6 +322,72 @@ fn render_frontmatter(map: &Mapping) -> Result<String, VaultError> {
         yaml.push('\n');
     }
     Ok(format!("---\n{}---\n\n", yaml))
+}
+
+fn normalize_frontmatter_key(key: &str) -> String {
+    let trimmed = key.trim();
+    if trimmed.is_empty() {
+        return "tags".to_string();
+    }
+    trimmed.to_string()
+}
+
+fn normalize_tag(tag: &str) -> Option<String> {
+    let normalized = tag.trim().trim_start_matches('#').trim();
+    if normalized.is_empty() {
+        None
+    } else {
+        Some(normalized.to_string())
+    }
+}
+
+fn extract_string(map: &Mapping, key: &str) -> Option<String> {
+    map.get(&YamlValue::String(key.to_string()))
+        .and_then(|v| v.as_str().map(|s| s.to_string()))
+}
+
+fn extract_tags(map: &Mapping, key: &str) -> Vec<String> {
+    let key_value = YamlValue::String(key.to_string());
+    let value = match map.get(&key_value) {
+        Some(val) => val,
+        None => return Vec::new(),
+    };
+
+    let mut tags = Vec::new();
+    match value {
+        YamlValue::Sequence(seq) => {
+            for item in seq {
+                if let YamlValue::String(tag) = item {
+                    if let Some(normalized) = normalize_tag(tag) {
+                        tags.push(normalized);
+                    }
+                }
+            }
+        }
+        YamlValue::String(text) => {
+            let parts = text.split(|c: char| c == ',' || c.is_whitespace());
+            for part in parts {
+                if let Some(normalized) = normalize_tag(part) {
+                    tags.push(normalized);
+                }
+            }
+        }
+        _ => {}
+    }
+
+    tags
+}
+
+fn set_tags(map: &mut Mapping, key: &str, tags: &[String]) {
+    let normalized_tags: Vec<YamlValue> = tags
+        .iter()
+        .filter_map(|tag| normalize_tag(tag))
+        .map(YamlValue::String)
+        .collect();
+    map.insert(
+        YamlValue::String(key.to_string()),
+        YamlValue::Sequence(normalized_tags),
+    );
 }
 
 fn update_prompt_block(body: &str, new_content: &str) -> String {
