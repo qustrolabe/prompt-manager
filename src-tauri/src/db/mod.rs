@@ -57,15 +57,24 @@ async fn ensure_prompt_columns(pool: &SqlitePool) -> Result<(), sqlx::Error> {
         .fetch_all(pool)
         .await?;
     let mut has_title = false;
+    let mut has_description = false;
     for row in columns {
         let name: String = row.get("name");
         if name == "title" {
             has_title = true;
         }
+        if name == "description" {
+            has_description = true;
+        }
     }
 
     if !has_title {
         sqlx::query("ALTER TABLE prompts ADD COLUMN title TEXT")
+            .execute(pool)
+            .await?;
+    }
+    if !has_description {
+        sqlx::query("ALTER TABLE prompts ADD COLUMN description TEXT")
             .execute(pool)
             .await?;
     }

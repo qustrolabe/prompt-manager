@@ -8,6 +8,7 @@ export const PromptSchema = z.object({
   filePath: z.string().nullable().optional(),
   previousFilePath: z.string().nullable().optional(),
   title: z.string().nullable().optional(),
+  description: z.string().nullable().optional(),
 });
 
 export type Prompt = z.infer<typeof PromptSchema>;
@@ -60,6 +61,7 @@ export const PromptFileSchema = z.object({
   created: z.string().nullable(),
   content: z.string(),
   fileHash: z.string().nullable().optional(),
+  description: z.string().nullable().optional(),
 });
 
 export type PromptFile = z.infer<typeof PromptFileSchema>;

@@ -320,7 +320,7 @@ export type FrontmatterSettings = { promptTagsProperty?: string; addPromptsTagTo
 /**
  * Prompt with tags - returned to frontend (legacy, for cache-based queries)
  */
-export type Prompt = { id: string; created: string | null; text: string; tags: string[]; filePath: string | null; title: string | null }
+export type Prompt = { id: string; created: string | null; text: string; tags: string[]; filePath: string | null; title: string | null; description: string | null }
 /**
  * A prompt file representation (parsed from markdown)
  */
@@ -352,11 +352,15 @@ fileHash?: string | null;
 /**
  * Optional prompt title from frontmatter
  */
-title: string | null }
+title: string | null; 
+/**
+ * Optional prompt description from frontmatter
+ */
+description: string | null }
 /**
  * Input for saving a prompt (legacy, for cache-based operations)
  */
-export type PromptInput = { id: string; created: string | null; text: string; tags: string[]; filePath: string | null; previousFilePath: string | null; title: string | null }
+export type PromptInput = { id: string; created: string | null; text: string; tags: string[]; filePath: string | null; previousFilePath: string | null; title: string | null; description: string | null }
 export type SortConfig = { by: string; order: string }
 export type SyncStats = { found: number; updated: number; deleted: number }
 export type TableColumn = { cid: number; name: string; type: string; notnull: number; dfltValue?: string | null; pk: number }

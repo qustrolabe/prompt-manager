@@ -29,6 +29,8 @@ pub struct PromptFile {
     pub file_hash: Option<String>,
     /// Optional prompt title from frontmatter
     pub title: Option<String>,
+    /// Optional prompt description from frontmatter
+    pub description: Option<String>,
 }
 
 /// Vault operation errors
@@ -125,6 +127,7 @@ pub fn read_prompt_file(
     let tags = extract_tags(&frontmatter_map, &prompt_tags_property);
     let created = extract_string(&frontmatter_map, "created");
     let title = extract_string(&frontmatter_map, "title");
+    let description = extract_string(&frontmatter_map, "description");
 
     // Extract content from code block
     let prompt_content = extract_code_block_content(&parsed.content);
@@ -144,6 +147,7 @@ pub fn read_prompt_file(
         content: prompt_content,
         file_hash,
         title,
+        description,
     })
 }
 
@@ -200,6 +204,18 @@ pub fn write_prompt_file(
         );
     } else {
         frontmatter_map.remove(&YamlValue::String("title".to_string()));
+    }
+    if let Some(description) = prompt
+        .description
+        .clone()
+        .filter(|d| !d.trim().is_empty())
+    {
+        frontmatter_map.insert(
+            YamlValue::String("description".to_string()),
+            YamlValue::String(description),
+        );
+    } else {
+        frontmatter_map.remove(&YamlValue::String("description".to_string()));
     }
 
     frontmatter_map.remove(&YamlValue::String("id".to_string()));

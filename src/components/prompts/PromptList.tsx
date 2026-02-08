@@ -2,12 +2,14 @@ import { RefObject, useLayoutEffect, useRef, useState } from "react";
 import { Prompt } from "@/schemas/schemas.ts";
 import { PromptCard } from "./PromptCard.tsx";
 import { useVirtualizer } from "@tanstack/react-virtual";
+import { ReactNode } from "react";
 
 interface PromptListProps {
   prompts: Prompt[];
   parentRef: RefObject<HTMLDivElement | null>;
   onEdit: (prompt: Prompt) => void;
   onDelete: (prompt: Prompt) => void;
+  renderPrompt?: (prompt: Prompt) => ReactNode | null;
   showTitles: boolean;
   showFullPrompt: boolean;
   showTags: boolean;
@@ -19,6 +21,7 @@ export function PromptList({
   parentRef,
   onEdit,
   onDelete,
+  renderPrompt,
   showTitles,
   showFullPrompt,
   showTags,
@@ -60,6 +63,7 @@ export function PromptList({
     >
       {rowVirtualizer.getVirtualItems().map((virtualItem) => {
         const prompt = prompts[virtualItem.index];
+        const customRender = renderPrompt ? renderPrompt(prompt) : null;
         return (
           <div
             key={virtualItem.key}
@@ -76,16 +80,18 @@ export function PromptList({
             }}
             className="pb-4"
           >
-            <PromptCard
-              prompt={prompt}
-              onClick={() => onEdit(prompt)}
-              onCopy={() => navigator.clipboard.writeText(prompt.text)}
-              onDelete={() => onDelete(prompt)}
-              showTitle={showTitles}
-              showFullPrompt={showFullPrompt}
-              showTags={showTags}
-              showCreatedDate={showCreatedDate}
-            />
+            {customRender || (
+              <PromptCard
+                prompt={prompt}
+                onDoubleClick={() => onEdit(prompt)}
+                onCopy={() => navigator.clipboard.writeText(prompt.text)}
+                onDelete={() => onDelete(prompt)}
+                showTitle={showTitles}
+                showFullPrompt={showFullPrompt}
+                showTags={showTags}
+                showCreatedDate={showCreatedDate}
+              />
+            )}
           </div>
         );
       })}

@@ -3,7 +3,7 @@ import { createFileRoute, useSearch } from "@tanstack/react-router";
 import { usePromptManager } from "@/contexts/PromptManagerContext.tsx";
 import { Prompt, ViewConfig } from "@/schemas/schemas.ts";
 import { ViewControls } from "@/components/ui/ViewControls.tsx";
-import { PromptEditOverlay } from "@/components/prompts/PromptEditOverlay.tsx";
+import { PromptEditor } from "@/components/prompts/PromptEditor.tsx";
 import { useViewManagement } from "@/hooks/useViewManagement.ts";
 import { useOverlayState } from "@/hooks/useOverlayState.ts";
 import { PromptList } from "@/components/prompts/PromptList.tsx";
@@ -78,6 +78,28 @@ function MainViewComponent() {
 
   // Overlay State Hooks
   const promptOverlay = useOverlayState<Prompt>();
+  const [pinEditor, setPinEditor] = useState(false);
+  const editContextSignatureRef = useRef<string | null>(null);
+
+  const getContextSignature = useCallback(() => {
+    return JSON.stringify({
+      viewId: viewId ?? null,
+      filter: currentConfig.filter ?? null,
+      sort: currentConfig.sort ?? null,
+    });
+  }, [currentConfig.filter, currentConfig.sort, viewId]);
+
+  const openEditInline = useCallback((prompt: Prompt) => {
+    editContextSignatureRef.current = getContextSignature();
+    setPinEditor(false);
+    promptOverlay.openEdit(prompt);
+  }, [getContextSignature, promptOverlay]);
+
+  const openNewPrompt = useCallback(() => {
+    editContextSignatureRef.current = getContextSignature();
+    setPinEditor(true);
+    promptOverlay.openNew();
+  }, [getContextSignature, promptOverlay]);
 
   // Handlers for Save/Delete/Duplicate
   const handlePromptSave = async (p: Prompt) => {
@@ -144,6 +166,33 @@ function MainViewComponent() {
     loadPrompts(currentConfig);
   }, [currentConfig, loadPrompts, prompts]);
 
+  useEffect(() => {
+    if (!promptOverlay.editingItem || promptOverlay.isNew || pinEditor) return;
+    const signature = getContextSignature();
+    if (
+      editContextSignatureRef.current &&
+      signature !== editContextSignatureRef.current
+    ) {
+      setPinEditor(true);
+    }
+  }, [getContextSignature, pinEditor, promptOverlay.editingItem, promptOverlay.isNew]);
+
+  useEffect(() => {
+    if (!promptOverlay.editingItem && !promptOverlay.isNew) {
+      setPinEditor(false);
+      editContextSignatureRef.current = null;
+    }
+  }, [promptOverlay.editingItem, promptOverlay.isNew]);
+
+  const shouldPinEditor = pinEditor || promptOverlay.isNew;
+  const pinnedPromptId = shouldPinEditor
+    ? promptOverlay.editingItem?.id || null
+    : null;
+  const listPrompts = useMemo(() => {
+    if (!pinnedPromptId) return viewPrompts;
+    return viewPrompts.filter((prompt) => prompt.id !== pinnedPromptId);
+  }, [pinnedPromptId, viewPrompts]);
+
   return (
     <div className="flex h-full flex-1 flex-col overflow-hidden bg-main-background">
       {showControls && (
@@ -151,20 +200,73 @@ function MainViewComponent() {
           config={currentConfig}
           onChange={handleConfigChange}
           allTags={allTags}
-          onNewPrompt={() => promptOverlay.openNew()}
+          onNewPrompt={openNewPrompt}
         />
       )}
 
       {/* Main Content List */}
       <div ref={parentRef} className="flex-1 overflow-y-auto p-4">
         <div className="mx-auto max-w-4xl">
+          {shouldPinEditor &&
+            (promptOverlay.editingItem || promptOverlay.isNew) && (
+            <div className="mb-4">
+              <PromptEditor
+                prompt={promptOverlay.editingItem}
+                isNew={promptOverlay.isNew}
+                allTags={allTags}
+                initialTags={activeViewTags}
+                onSave={handlePromptSave}
+                onDelete={async (id) => {
+                  await removePrompt(id);
+                  await loadPrompts(currentConfig);
+                  promptOverlay.close();
+                }}
+                onDuplicate={async (id) => {
+                  await duplicatePrompt(id);
+                  await loadPrompts(currentConfig);
+                  promptOverlay.close();
+                }}
+                onClose={promptOverlay.close}
+              />
+            </div>
+          )}
           <PromptList
-            prompts={viewPrompts}
+            prompts={listPrompts}
             parentRef={parentRef}
-            onEdit={promptOverlay.openEdit}
+            onEdit={openEditInline}
             onDelete={async (prompt) => {
               await removePrompt(prompt.id);
               await loadPrompts(currentConfig);
+            }}
+            renderPrompt={(prompt) => {
+              if (
+                !shouldPinEditor &&
+                !promptOverlay.isNew &&
+                promptOverlay.editingItem &&
+                prompt.id === promptOverlay.editingItem.id
+              ) {
+                return (
+                  <PromptEditor
+                    prompt={promptOverlay.editingItem}
+                    isNew={false}
+                    allTags={allTags}
+                    initialTags={activeViewTags}
+                    onSave={handlePromptSave}
+                    onDelete={async (id) => {
+                      await removePrompt(id);
+                      await loadPrompts(currentConfig);
+                      promptOverlay.close();
+                    }}
+                    onDuplicate={async (id) => {
+                      await duplicatePrompt(id);
+                      await loadPrompts(currentConfig);
+                      promptOverlay.close();
+                    }}
+                    onClose={promptOverlay.close}
+                  />
+                );
+              }
+              return null;
             }}
             showTitles={config?.view?.showPromptTitles ?? true}
             showFullPrompt={config?.view?.showFullPrompt ?? false}
@@ -173,28 +275,6 @@ function MainViewComponent() {
           />
         </div>
       </div>
-
-      {/* Overlays */}
-      {(promptOverlay.editingItem || promptOverlay.isNew) && (
-        <PromptEditOverlay
-          prompt={promptOverlay.editingItem}
-          isNew={promptOverlay.isNew}
-          allTags={allTags}
-          initialTags={activeViewTags}
-          onSave={handlePromptSave}
-          onDelete={async (id) => {
-            await removePrompt(id);
-            await loadPrompts(currentConfig);
-            promptOverlay.close();
-          }}
-          onDuplicate={async (id) => {
-            await duplicatePrompt(id);
-            await loadPrompts(currentConfig);
-            promptOverlay.close();
-          }}
-          onClose={promptOverlay.close}
-        />
-      )}
     </div>
   );
 }

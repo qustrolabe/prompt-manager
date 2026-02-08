@@ -5,7 +5,7 @@ import { FiCopy } from "react-icons/fi";
 
 interface PromptCardProps {
   prompt: Prompt;
-  onClick: () => void;
+  onDoubleClick: () => void;
   onCopy: () => void;
   onDelete: () => void;
   showTitle: boolean;
@@ -16,7 +16,7 @@ interface PromptCardProps {
 
 export function PromptCard({
   prompt,
-  onClick,
+  onDoubleClick,
   onCopy,
   onDelete,
   showTitle,
@@ -29,6 +29,7 @@ export function PromptCard({
     onCopy();
   };
   const title = prompt.title?.trim() || "";
+  const description = prompt.description?.trim() || "";
 
   const createdLabel = prompt.created
     ? new Date(prompt.created).toLocaleString()
@@ -38,13 +39,14 @@ export function PromptCard({
     `Created: ${createdLabel}`,
     `Tags: ${prompt.tags.length}`,
     `Title: ${title || "Untitled"}`,
+    `Description: ${description || "None"}`,
   ];
 
   return (
     <ContextMenu.Root>
       <ContextMenu.Trigger asChild>
         <div
-          onClick={onClick}
+          onDoubleClick={onDoubleClick}
           title={tooltipLines.join("\n")}
           className="group relative cursor-pointer border border-panel-border bg-panel p-4 transition-all hover:border-neutral-400 hover:shadow-md dark:hover:border-neutral-500"
         >

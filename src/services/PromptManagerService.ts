@@ -45,7 +45,7 @@ class TauriPromptManagerService {
   }
 
   async savePrompt(prompt: Prompt): Promise<void> {
-    const input: RsPromptInput = {
+    const input = {
       id: prompt.id,
       created: prompt.created,
       text: prompt.text,
@@ -53,7 +53,8 @@ class TauriPromptManagerService {
       filePath: prompt.filePath ?? null,
       previousFilePath: prompt.previousFilePath ?? null,
       title: prompt.title ?? null,
-    };
+      description: prompt.description ?? null,
+    } as RsPromptInput;
 
     const res = await commands.savePrompt(input);
     unwrap(res);
@@ -206,6 +207,7 @@ class TauriPromptManagerService {
   // ============================================================
 
   private mapPromptFromRust(p: RsPrompt): Prompt {
+    const withDescription = p as RsPrompt & { description?: string | null };
     return {
       id: p.id,
       created: p.created,
@@ -213,6 +215,7 @@ class TauriPromptManagerService {
       tags: p.tags,
       filePath: p.filePath,
       title: p.title ?? null,
+      description: withDescription.description ?? null,
     };
   }
 

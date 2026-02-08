@@ -54,6 +54,7 @@ pub async fn get_prompts(
             tags,
             file_path: row.file_path,
             title: row.title,
+            description: row.description,
         });
     }
 
@@ -186,6 +187,7 @@ pub async fn save_prompt(
         content: prompt.text.clone(),
         file_hash: None,
         title: prompt.title.clone(),
+        description: prompt.description.clone(),
     };
 
     // 3. Write to Filesystem
@@ -215,6 +217,7 @@ pub async fn save_prompt(
         .bind(prompt.created)
         .bind(&prompt.text)
         .bind(prompt.title.clone())
+        .bind(prompt.description.clone())
         .bind(Some(file_path.clone())) // Store the relative path
         .bind(file_hash) // file_hash placeholder
         .execute(&mut *tx)
@@ -355,6 +358,7 @@ pub async fn duplicate_prompt(
         file_path: None, // New file will be created
         previous_file_path: None,
         title: row.title.clone(),
+        description: row.description.clone(),
     };
 
     // 1. Prepare PromptFile for vault write
@@ -366,6 +370,7 @@ pub async fn duplicate_prompt(
         content: new_prompt.text.clone(),
         file_hash: None,
         title: new_prompt.title.clone(),
+        description: new_prompt.description.clone(),
     };
 
     // 2. Write to Filesystem
@@ -380,6 +385,7 @@ pub async fn duplicate_prompt(
         .bind(new_prompt.created)
         .bind(&new_prompt.text)
         .bind(new_prompt.title.clone())
+        .bind(new_prompt.description.clone())
         .bind(Some(file_path.clone()))
         .bind::<Option<String>>(None)
         .execute(&mut *tx)
@@ -403,6 +409,7 @@ pub async fn duplicate_prompt(
         tags,
         file_path: Some(file_path),
         title: row.title,
+        description: row.description,
     }))
 }
 
@@ -703,6 +710,7 @@ pub async fn sync_vault(app: AppHandle, db: State<'_, DbPool>) -> Result<SyncSta
             .bind(file.created)
             .bind(&file.content)
             .bind(file.title.clone())
+            .bind(file.description.clone())
             .bind(Some(&file.file_path))
             .bind(file.file_hash.clone())
             .execute(&mut *tx)

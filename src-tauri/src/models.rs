@@ -14,6 +14,7 @@ pub struct PromptRow {
     pub created: Option<String>,
     pub text: String,
     pub title: Option<String>,
+    pub description: Option<String>,
     pub file_path: Option<String>,
     pub file_hash: Option<String>,
 }
@@ -56,6 +57,7 @@ pub struct Prompt {
     pub tags: Vec<String>,
     pub file_path: Option<String>,
     pub title: Option<String>,
+    pub description: Option<String>,
 }
 
 /// Input for saving a prompt (legacy, for cache-based operations)
@@ -69,6 +71,7 @@ pub struct PromptInput {
     pub file_path: Option<String>,
     pub previous_file_path: Option<String>,
     pub title: Option<String>,
+    pub description: Option<String>,
 }
 
 /// View configuration for filtering and sorting

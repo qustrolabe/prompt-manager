@@ -24,6 +24,9 @@ export function usePromptEditForm(
     prompt?.filePath || initialFilePath,
   );
   const [title, setTitle] = useState<string>(prompt?.title || "");
+  const [description, setDescription] = useState<string>(
+    prompt?.description || "",
+  );
 
   // Reset form when prompt changes
   useEffect(() => {
@@ -32,11 +35,13 @@ export function usePromptEditForm(
       setTags(prompt.tags);
       setFilePath(prompt.filePath || prompt.id || "");
       setTitle(prompt.title || "");
+      setDescription(prompt.description || "");
     } else {
       setText("");
       setTags(initialTags || []);
       setFilePath(initialFilePath);
       setTitle("");
+      setDescription("");
     }
   }, [prompt?.id, isNew, initialFilePath]);
 
@@ -46,14 +51,16 @@ export function usePromptEditForm(
         text !== prompt.text ||
         !areArraysEqual(tags, prompt.tags) ||
         (filePath || "") !== (prompt.filePath || "") ||
-        (title || "") !== (prompt.title || "")
+        (title || "") !== (prompt.title || "") ||
+        (description || "") !== (prompt.description || "")
       );
     } else {
       return (
         text !== "" ||
         !areArraysEqual(tags, initialTags) ||
         (filePath || "") !== (initialFilePath || "") ||
-        title !== ""
+        title !== "" ||
+        description !== ""
       );
     }
   }, [
@@ -64,6 +71,7 @@ export function usePromptEditForm(
     filePath,
     initialFilePath,
     title,
+    description,
   ]);
 
   return {
@@ -75,6 +83,8 @@ export function usePromptEditForm(
     setFilePath,
     title,
     setTitle,
+    description,
+    setDescription,
     isModified,
   };
 }

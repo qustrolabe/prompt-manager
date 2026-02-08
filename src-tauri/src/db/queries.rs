@@ -10,6 +10,7 @@ CREATE TABLE IF NOT EXISTS prompts (
     created TEXT,
     text TEXT NOT NULL,
     title TEXT,
+    description TEXT,
     file_path TEXT,
     file_hash TEXT
 )
@@ -55,23 +56,24 @@ CREATE INDEX IF NOT EXISTS idx_prompt_tags_prompt_id ON prompt_tags(prompt_id)
 // ============================================================================
 
 pub const SELECT_ALL_PROMPTS: &str = r#"
-SELECT id, created, text, title, file_path, file_hash
+SELECT id, created, text, title, description, file_path, file_hash
 FROM prompts
 ORDER BY created DESC
 "#;
 
 pub const SELECT_PROMPT_BY_ID: &str = r#"
-SELECT id, created, text, title, file_path, file_hash
+SELECT id, created, text, title, description, file_path, file_hash
 FROM prompts
 WHERE id = ?
 "#;
 
 pub const UPSERT_PROMPT: &str = r#"
-INSERT INTO prompts (id, created, text, title, file_path, file_hash)
-VALUES (?, ?, ?, ?, ?, ?)
+INSERT INTO prompts (id, created, text, title, description, file_path, file_hash)
+VALUES (?, ?, ?, ?, ?, ?, ?)
 ON CONFLICT(id) DO UPDATE SET
     text = excluded.text,
     title = excluded.title,
+    description = excluded.description,
     file_path = excluded.file_path,
     file_hash = excluded.file_hash
 "#;
